@@ -9,6 +9,7 @@
 
 library(tidyverse)
 library(lubridate)
+library(finalfit)
 
 paygap <- 
   read_csv(paste0(
@@ -111,6 +112,7 @@ submission_delays <-
 
 submission_delays$delay %>% hist()
 summary(submission_delays$delay)
+rm(submission_delays)
 
 # I am interested in exploring time series data so create year variable 
 # using year when data due
@@ -154,20 +156,86 @@ paygap %>%
 
 paygap_w <- 
   paygap %>% 
+  mutate(year = lubridate::year(due_date)) %>% 
   select(-c(date_submitted, submitted_after_the_deadline)) %>% 
-  unique() %>% 
-  mutate(year = lubridate::year(due_date)) 
+  unique()
 
-## are there implicit missing data ----
-## are there years missing that don't show up with any values?
+## missing data ----
+
+### explicit missing data ----
+
+finalfit::ff_glimpse(paygap_w)
+
+## explore differences in bonuses between males and females
+
+## there is no missing data for percent of men/women paid a bonus
+paygap_w %>% 
+  ggplot() +
+  geom_histogram(aes(male_bonus_percent))
+
+paygap_w %>% 
+  ggplot() +
+  geom_histogram(aes(female_bonus_percent))
+
+## but there are 8932 observations with missing date for difference in bonuses
+
+## Q: Are those who don't receive a bonus those with missing values in diff?
+paygap_w %>% 
+  filter(female_bonus_percent == 0 | male_bonus_percent == 0) %>% 
+  summarise(missing = sum(is.na(diff_mean_bonus_percent)))
+
+paygap_w %>% 
+  filter(female_bonus_percent == 0 | male_bonus_percent == 0) %>% 
+  summarise(missing = sum(is.na(diff_median_bonus_percent)))
+
+# it appears that most of missing values relate to bonuses not being paid
+
+missing_bonus <- 
+  paygap_w %>% 
+  # select observations where bonuses are paid to male and female but there
+  # is missing data for values of mean or median difference in bonus
+  filter((female_bonus_percent != 0 & male_bonus_percent != 0) &
+           (is.na(diff_median_bonus_percent) | is.na(diff_mean_bonus_percent))) %>% 
+  select(employer_id, diff_mean_bonus_percent, diff_median_bonus_percent,
+         male_bonus_percent, female_bonus_percent, everything()) %>% 
+  arrange(employer_id)
+
+missing_bonus
+
+## 14 observations where data where males and females receive a bonus 
+## and no mean and or median difference available
+
+missing_plot(missing_bonus)  # no additional pattern evident
+
+## TO DO: decide how to handle missing data in these 14 observations
+## what type of missing data is this??
+
+## explore missing values in hourly pay quartile data
+
+## it appears that 392 observations have missing data relating to hourly pay
+## quartile data although there is no missing data in the diff hourly percent
+## variables.
+
+## TO DO: explore the above ****
+
+
+
+
+
+
+
+### is there implicit missing data ----
+
+## ie. are there years missing that don't show up with any values?
 
 complete_paygap <-
   paygap_w %>%
   complete(employer_id, year)
 
 summary(complete_paygap)
-# there are many companies with data missing for years - TO DO explore 
-# if there are any patterns in this data
+
+# there are many companies with data missing for years 
+# explore if there are any patterns in this data
 
 complete_paygap %>% 
   select(employer_id, year, current_name) %>% 
@@ -179,5 +247,19 @@ complete_paygap %>%
 # i can understand why data incomplete for 2023 but unsure why other years
 # especially spike in missing data for 2020
 
+# what data is there for 2023 considering that this is next year?
+paygap_w %>% 
+  filter(year == 2023) %>% 
+  select(employer_id, current_name, due_date, year) %>% 
+  n_distinct()
 
+# 125 companies have submitted data for next year already
+# for this analysis I will exclude these observations
 
+paygap_upto22 <- 
+  paygap_w %>% 
+  filter(year != 2023)
+
+# i would now like to plot missing data by year and company
+
+finalfit::missing_plot(complete_paygap)
