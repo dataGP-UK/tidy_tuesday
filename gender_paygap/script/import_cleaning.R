@@ -10,6 +10,7 @@
 library(tidyverse)
 library(lubridate)
 library(finalfit)
+library(naniar)
 library(here)
 
 paygap <- 
@@ -31,8 +32,8 @@ summary(paygap)
 paygap <- 
   paygap %>% 
   # remove variables that will not be used in analysis
-  select(-c(address, employer_name, company_link_to_gpg_info, 
-            responsible_person))
+  select(-c(address, employer_name, company_number,
+            company_link_to_gpg_info, responsible_person))
 
 ## manage categorical variables ----
 
@@ -194,7 +195,9 @@ submission_delays$delay %>% hist() # r skewed distribution
 # how can they accurately reflect the year the data should relate to?
 
 ####  create working data set ----
-# year = year due. Duplicate entries removed.
+
+# with year representing year due. 
+# date_submitted variable and duplicate entries removed.
 
 paygap_w <- 
   paygap %>% 
@@ -206,61 +209,137 @@ paygap_w <-
 
 ## missing data ----
 
+# may be more effective to work in long format to analyse this data 
+
+
+
+
+
+
+
 ### explicit missing data ----
 
-finalfit::ff_glimpse(paygap_w)
+pct_miss(paygap_w)          # 2.6 %
+pct_miss_case(paygap_w)     # 27.0 %
+pct_complete_case(paygap_w) # 73.0 %
 
-## explore differences in bonuses between males and females
+gg_miss_var(paygap_w, show_pct = TRUE)
 
-## there is no missing data for percent of men/women paid a bonus
-paygap_w %>% 
-  ggplot() +
-  geom_histogram(aes(male_bonus_percent))
+## variables containing missing data:
+## diff bonus %, sic_codes, employer size, hourly rate quartiles, post code
 
-paygap_w %>% 
-  ggplot() +
-  geom_histogram(aes(female_bonus_percent))
+# explore missing data by categorical variable employer_size
+paygap %>% 
+  gg_miss_var(show_pct = TRUE, facet = employer_size)
 
-## but there are 8932 observations with missing date for difference in bonuses
+#### bonus percent ----
 
-## Q: Are those who don't receive a bonus those with missing values in diff?
+# most significant area of missing date is around % differences in bonuses 
+# between males and females
+
+# this may be related to data on percentage of males/females paid a bonus
+# however there is no missing data for either of these categories
+
+## explore distribution
+paygap_w %>%
+  # create long format data to allow comparisons when visualising
+  pivot_longer(
+    cols = contains(c('percent', 'quartile')),
+    names_to = 'vars',
+    values_to = 'vals'
+    ) %>% 
+  filter(vars %in% c('male_bonus_percent', 'female_bonus_percent')) %>% 
+  ggplot(aes(x=vals)) +
+  geom_histogram() +
+  facet_wrap(~ vars, ncol = 1)
+
+### bimodal distribution: bonus % either low or high - few in middle
+### most frequent percentage is zero
+### is this related to employer size?
+
+paygap_w %>%
+  pivot_longer(
+    cols = contains(c('percent', 'quartile')),
+    names_to = 'vars',
+    values_to = 'vals'
+  ) %>% 
+  filter(vars %in% c('male_bonus_percent', 'female_bonus_percent')) %>% 
+  ggplot(aes(x=vals)) +
+  geom_histogram() +
+  # visualise by sex and employer size
+  facet_grid(rows = vars(vars), cols = vars(employer_size))
+
+### to do: proportion of companies paying bonus by size ?sex difference
+
+## there are 8932 observations with missing date for difference in bonuses
+## but no missing values for percent employees receiving bonus
+
+## if either no males or no females paid a bonus then it will not be possible
+## calculate a difference in bonus paid - therefore mean/median will = NA
+
+## check if employers who don't pay a bonus are those with missing values 
 paygap_w %>% 
   filter(female_bonus_percent == 0 | male_bonus_percent == 0) %>% 
-  summarise(missing = sum(is.na(diff_mean_bonus_percent)))
+  summarise(missing_mean = sum(is.na(diff_mean_bonus_percent)),
+            missing_median = sum(is.na(diff_median_bonus_percent)))
 
-paygap_w %>% 
-  filter(female_bonus_percent == 0 | male_bonus_percent == 0) %>% 
-  summarise(missing = sum(is.na(diff_median_bonus_percent)))
+# it appears that most of missing values relate employers where bonuses 
+# are not paid to either or both males or females
 
-# it appears that most of missing values relate to bonuses not being paid
-
-missing_bonus <- 
-  paygap_w %>% 
+# are there some missing values where bonuses are paid to both sexes?
+missing_bonus <-
+  paygap_w %>%
   # select observations where bonuses are paid to male and female but there
-  # is missing data for values of mean or median difference in bonus
+  # is still missing data for values of mean or median difference in bonus %
   filter((female_bonus_percent != 0 & male_bonus_percent != 0) &
-           (is.na(diff_median_bonus_percent) | is.na(diff_mean_bonus_percent))) %>% 
-  select(employer_id, diff_mean_bonus_percent, diff_median_bonus_percent,
-         male_bonus_percent, female_bonus_percent, everything()) %>% 
+           (
+             is.na(diff_median_bonus_percent) |
+               is.na(diff_mean_bonus_percent)
+           )) %>%
+  select(
+    employer_id,
+    diff_mean_bonus_percent,
+    diff_median_bonus_percent,
+    male_bonus_percent,
+    female_bonus_percent,
+    everything()
+  ) %>%
   arrange(employer_id)
 
 missing_bonus
 
-## 14 observations where data where males and females receive a bonus 
-## and no mean and or median difference available
+## there are 14 observations where data where males and females receive a bonus 
+## and no value for mean and/or median difference available
 
 missing_plot(missing_bonus)  # no additional pattern evident
 
 ## TO DO: decide how to handle missing data in these 14 observations
-## what type of missing data is this??
 
-## explore missing values in hourly pay quartile data
+
+#### hourly pay quartile ----
+
+
+
+
+
+
+
+
+
+
+
 
 ## it appears that 392 observations have missing data relating to hourly pay
 ## quartile data although there is no missing data in the diff hourly percent
 ## variables.
 
 ## TO DO: explore the above ****
+
+
+
+
+
+
 
 
 
