@@ -224,7 +224,7 @@ submission_delays$delay %>% boxplot() # multiple high and low outliers
 
 # validity ----
 
-# explore observations where data submitted > 1year before due_date
+## early submission of data ----
 
 # create dataframe of early submissions
 early_submissions <- 
@@ -240,17 +240,19 @@ early_submissions <-
 early_submissions %>% 
   select(current_name, date_submitted, due_date, delay) %>% 
   arrange(desc(delay)) %>% 
-  head()
+  head(20)
 
 min(early_submissions$date_submitted)
 max(early_submissions$date_submitted)
 
 # years associated with early submissions
-early_submissions$year_due %>% unique() ## only appears to be due date of 2021
+early_submissions$year_due %>% unique()         # only appears to be 2021
+early_submissions$year_submitted %>% unique()   # only appears to be 2020
+
+# TO DO: explore why data submitted in 2020 for 2021
 
 # may need to remove values reported well in advance of due date if analysing
-# time series data
-# ? use filtering join
+# time series data - ? use filtering join
 
 ## are there any other patterns
 # employers who have submitted data early multiple times
@@ -261,10 +263,58 @@ early_submissions %>%
   nrow()
 # there are none
 
+## numeric variables ----
+## explore ranges and distribution
+
+### bonus_percent ---- 
+
+# ?any values < 0% or > 100%
+paygap %>%
+  select(male_bonus_percent, female_bonus_percent) %>%
+ summary()
+
+## may be an issue with max female paid bonus of 100.4% (>100%)
+
+### percent_difference ----
+paygap %>% 
+  select(contains('diff')) %>% 
+  summary()
+
+## there are some very large percentage differences between males and females
+## especially for mean and median bonus percent
+
+### visualise distribution of these
+paygap %>% 
+  ggplot(aes(y = diff_mean_bonus_percent)) +
+  geom_boxplot()
+
+paygap %>% 
+  ggplot(aes(y = diff_median_bonus_percent)) +
+  geom_boxplot() 
+
+### View data
+paygap %>% 
+  arrange(diff_mean_bonus_percent) %>% 
+  head(20) %>% view
+
+paygap %>% 
+  arrange(diff_median_bonus_percent) %>% 
+  head(20) %>% view
+
+# these extremes may be possible values especially if bonuses are infrequent & 
+# uncommon e.g. executive bonus 
+# TO DO: may be an area to explore later
+
+### hourly pay quartiles ----
+paygap %>% 
+  select(contains('quartile')) %>% 
+  summary()
+
+# these are percentages and all are valid
+
+## for each quartile - male % + female % should equal 100%
 
 
-# submitted_after_the_deadline is not accurate and would be better replaced
-# by late_submit in working dataset. ACCURACY
 
 
 
@@ -272,9 +322,6 @@ early_submissions %>%
 # completeness ----
 
 # missing data (explicit and implicit)
-
-# may be more effective to work in long format to analyse this data 
-
 
 ## explicit missing data ----
 
@@ -447,8 +494,8 @@ finalfit::missing_plot(complete_paygap)
 
 
 
-
-
+# submitted_after_the_deadline is not accurate and would be better replaced
+# by late_submit in working dataset. ACCURACY
 
 ###  create working data set ----
 
