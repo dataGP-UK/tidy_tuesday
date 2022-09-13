@@ -10,13 +10,15 @@
 library(tidyverse)
 library(lubridate)
 library(finalfit)
+library(here)
 
 paygap <- 
   read_csv(paste0(
     'https://raw.githubusercontent.com/rfordatascience/tidytuesday/master',
     '/data/2022/2022-06-28/paygap.csv'))
 
-# save raw data to data folder  ** TO DO **
+# save raw data to data folder
+write_csv(paygap, 'gender_paygap/data/raw/paygap_raw.csv')
 
 # initial exploration ----
 
@@ -28,39 +30,41 @@ summary(paygap)
 # preliminary feature selection
 paygap <- 
   paygap %>% 
+  # remove variables that will not be used in analysis
   select(-c(address, employer_name, company_link_to_gpg_info, 
             responsible_person))
 
-# manage categorical variable: employer size
+# manage categorical variables
 
-# what unique values are there for this variable
-unique(paygap$employer_size)
+# employer_size is the only categorical variable to convert to factor
 
-# formally define missing data: currently "Not provided"
-paygap <- 
-  paygap %>% 
-  mutate(employer_size = na_if(employer_size, 'Not Provided'))
-unique(paygap$employer_size)  # check output
+# this is ordinal data so ensure ordered factor created
+# missing data currently labelled as "Not provided"
 
-# mutate into ordered factor
-paygap <- 
+paygap <-
   paygap %>%
-  mutate(employer_size =
-           factor(
-             employer_size,
-             ordered = TRUE,
-             levels = c(
-               "250 to 499",
-               "500 to 999",
-               "1000 to 4999",
-               "5000 to 19,999",
-               "20,000 or more"
-             )
-           ))
+  mutate(
+    # replace 'Not Provided' with NA
+    employer_size = na_if(employer_size, 'Not Provided'),
+    # create ordered factor
+    employer_size =
+      factor(
+        employer_size,
+        ordered = TRUE,
+        levels = c(
+          "250 to 499",
+          "500 to 999",
+          "1000 to 4999",
+          "5000 to 19,999",
+          "20,000 or more"
+        )
+      )
+  )
 
 # check output
-levels(paygap$employer_size)
-str(paygap)
+class(paygap$employer_size)
+unique(paygap$employer_size)
+
 
 ## check for any duplicated observations ----
 sum(duplicated(paygap))  # zero duplicate records
