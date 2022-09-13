@@ -66,8 +66,9 @@ paygap <-
 class(paygap$employer_size)
 unique(paygap$employer_size)
 
+# quality assessment ----
 
-## check for duplicates ----
+## uniqueness ----
 ### check for any duplicated observations ----
 sum(duplicated(paygap))  # zero duplicate records
 
@@ -136,48 +137,66 @@ paygap %>%
 
 # there are 4 companies who have 2 sets of data due in the same year
 # are there any common features?
-paygap %>%
-  mutate( year = lubridate::year(due_date)) %>% 
-  filter(employer_id %in% c(8295, 11744, 11766, 20048) & 
-           year %in% c(2020, 2021)) %>% 
-  select(current_name, employer_id, current_name, year, due_date, 
-         date_submitted, submitted_after_the_deadline) %>% 
-  arrange(current_name, year) %>% 
-  view()
+duplicates <-
+  paygap %>%
+  mutate(year = lubridate::year(due_date)) %>%
+  # remove variables that may differ between duplicates
+  select(
+    current_name,
+    employer_id,
+    year,
+    everything(),-c(
+      submitted_after_the_deadline,
+      responsible_person,
+      company_link_to_gpg_info,
+      employer_name
+    )
+  ) %>%
+  # filter for employer id/year pairs where previous duplicated observations
+  filter(employer_id %in% c(8295, 11744, 11766, 20048) &
+           year %in% c(2020, 2021)) %>%
+  arrange(current_name, year)
+
+duplicates
 
 # 2 approaches
 #   1.) filter for unique observation
 #   2.) retain most recent submission
 
 # remove duplicate entries by filtering for unique obs
-paygap %>% 
-  mutate(year = lubridate::year(due_date)) %>% 
-  # remove variables that may differ between duplicates
-  select(current_name, employer_id, year, everything(),
-         -c(date_submitted, submitted_after_the_deadline)) %>% 
-  # filter for employer id/year pairs where previous duplicated observations
-  filter(employer_id %in% c(8295, 11744, 11766, 20048) & 
-           year %in% c(2020, 2021)) %>% 
+duplicates %>% 
+  select(-date_submitted) %>% 
   # select unique
   unique() %>% 
   arrange(employer_id, year) %>% 
-  view()
+  select(current_name, due_date, year)
 
 # this has removed duplicated entries for 3 employers but there is a possible 
 # error for employer id 8295 who have 2 identical submissions in 2021 
 # it appears data filed reporting 2 different employer_sizes for same year
-# TO DO: explore source data for this company
 
-#### date due vs submission date ----
+# remove duplicate entries by retaining most recent observation
+duplicates %>% 
+  group_by(employer_id, year) %>% 
+  arrange(desc(date_submitted)) %>% 
+  select(current_name, date_submitted, year) %>% 
+  slice(1)
 
-# explore delays in submitting data
-## numeric
+# this handles all duplicated values by using the most up to data copy as the
+# current data when there is a duplicate observation by employer id and year
+
+
+# timeliness ----
+## explore delays in submitting data ----
+## numerically
 submission_delays <- 
   paygap %>% 
   mutate(
     delay = date_submitted - due_date,
     delay = as.numeric(as.duration(delay), 'days'),
-    late_submit = delay > 0) %>% 
+    late_submit = delay > 0) 
+
+submission_delays %>% 
   select(date_submitted, due_date, delay,
          late_submit, submitted_after_the_deadline)
 
@@ -187,37 +206,49 @@ summary(submission_delays$delay)
 submission_delays$delay %>% hist() # r skewed distribution
 (submission_delays$delay) %>% boxplot() # log transformed to aid visual
 
+submission_delays %>% 
+  ggplot(aes(x = late_submit, y = delay)) +
+  geom_boxplot() +
+  facet_wrap(~ submitted_after_the_deadline)
+
 ## interpretation:
 # mean and median values consistent with no delays on average
 # however there appear to be outliers in both directions which call into 
 # question the validity of this data
+
 # I am especially concerned about values submitted > 1 year before due_date
 # how can they accurately reflect the year the data should relate to?
 
-####  create working data set ----
+# submitted_after_the_deadline is not accurate and would be better replaced
+# by late_submit in working dataset. ACCURACY
 
-# with year representing year due. 
-# date_submitted variable and duplicate entries removed.
+# explore observations where data submitted > 1year before due_date
 
-paygap_w <- 
+early_submissions <- 
   paygap %>% 
-  mutate(year = lubridate::year(due_date)) %>% 
-  # remove variable relating to date of submission
-  select(-c(date_submitted, submitted_after_the_deadline)) %>% 
-  unique()
+  mutate(
+    delay = date_submitted - due_date,
+    delay = as.numeric(as.duration(delay), 'days')) %>% 
+  filter(
+    delay <= -366
+  ) 
 
+early_submissions %>% 
+  select(current_name, date_submitted, due_date, delay) %>% 
+  arrange(desc(delay))
 
-## missing data ----
+# may need to remove the extreme values prior to creating working data set
+# especially those where values reported well in advance of due date
+# ? use filtering join
+
+# completeness ----
+
+# missing data (explicit and implicit)
 
 # may be more effective to work in long format to analyse this data 
 
 
-
-
-
-
-
-### explicit missing data ----
+## explicit missing data ----
 
 pct_miss(paygap_w)          # 2.6 %
 pct_miss_case(paygap_w)     # 27.0 %
@@ -228,7 +259,7 @@ gg_miss_var(paygap_w, show_pct = TRUE)
 ## variables containing missing data:
 ## diff bonus %, sic_codes, employer size, hourly rate quartiles, post code
 
-#### bonus percent ----
+### bonus percent ----
 
 # most significant area of missing date is around % differences in bonuses 
 # between males and females
@@ -346,7 +377,7 @@ paygap_w %>%
 ## conversely the percentage of missing data for all variables appears to be 
 ## highest where employer size is unknown
 
-### is there implicit missing data ----
+### implicit missing data ----
 
 ## ie. are there years missing that don't show up with any values?
 
@@ -378,10 +409,27 @@ paygap_w %>%
 # 125 companies have submitted data for next year already
 # for this analysis I will exclude these observations
 
-paygap_upto22 <- 
-  paygap_w %>% 
-  filter(year != 2023)
 
 # i would now like to plot missing data by year and company
 
 finalfit::missing_plot(complete_paygap)
+
+
+
+
+
+
+
+
+
+###  create working data set ----
+
+# with year representing year due. 
+# date_submitted variable and duplicate entries removed.
+
+paygap_w <- 
+  paygap %>% 
+  mutate(year = lubridate::year(due_date)) %>% 
+  # remove variable relating to date of submission
+  select(-c(date_submitted, submitted_after_the_deadline)) %>% 
+  unique()
