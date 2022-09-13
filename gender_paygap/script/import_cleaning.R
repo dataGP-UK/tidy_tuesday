@@ -100,7 +100,7 @@ paygap %>%
 
 # there are 2 different variables for dates (submitted and due)
 
-#### explore 'date_submitted' variable ----
+#### explore using year_submitted ----
 min(paygap$date_submitted)
 max(paygap$date_submitted)
 
@@ -132,7 +132,7 @@ paygap %>%
 # similar situation for 2021 and 2022 data submitted at the same time
 # again submitted_after_the_deadline is FALSE
 
-#### explore 'due_date' variable ----
+#### explore using year due ----
 
 min(paygap$due_date)
 max(paygap$due_date)
@@ -164,7 +164,9 @@ duplicates <-
 
 duplicates
 
-# 2 approaches to dealing with this duplicated data
+### managing duplicated data ----
+
+## 2 approaches
 
 ## 1.) remove duplicate entries by filtering for unique obs
 duplicates %>% 
@@ -187,8 +189,6 @@ duplicates %>%
 
 # this handles all duplicated values by using the most up to data copy as the
 # current data when there is a duplicate observation by employer id and year
-
-
 
 # timeliness ----
 
