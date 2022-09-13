@@ -228,10 +228,6 @@ gg_miss_var(paygap_w, show_pct = TRUE)
 ## variables containing missing data:
 ## diff bonus %, sic_codes, employer size, hourly rate quartiles, post code
 
-# explore missing data by categorical variable employer_size
-paygap %>% 
-  gg_miss_var(show_pct = TRUE, facet = employer_size)
-
 #### bonus percent ----
 
 # most significant area of missing date is around % differences in bonuses 
@@ -318,34 +314,37 @@ missing_plot(missing_bonus)  # no additional pattern evident
 
 #### hourly pay quartile ----
 
-
-
-
-
-
-
-
-
-
-
+paygap_w %>% 
+  select(contains('quartile')) %>%
+  summary()
 
 ## it appears that 392 observations have missing data relating to hourly pay
 ## quartile data although there is no missing data in the diff hourly percent
 ## variables.
 
-## TO DO: explore the above ****
+# are all missing values in same observations
+paygap_w %>% 
+  select(contains('quartile')) %>%
+  # plot missingness by variable and observation
+  missing_plot()
+
+## it appears that data is missing across all quartiles for 392 observations
+## ie. there is either data for all quartiles and sexes or for none
 
 
+#### employer size ----
 
+# explore whether missing data in other variables related to categories of 
+# employer size (including where employer size is NA)
 
+paygap_w %>% 
+  gg_miss_var(show_pct = TRUE, facet = employer_size)
 
+## it appears that as employer size increases the percent of missing data for
+## all variables appears to decrease
 
-
-
-
-
-
-
+## conversely the percentage of missing data for all variables appears to be 
+## highest where employer size is unknown
 
 ### is there implicit missing data ----
 
