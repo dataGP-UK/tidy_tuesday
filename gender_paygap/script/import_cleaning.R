@@ -504,9 +504,46 @@ paygap <-
 # Finalise clean working data sets ----
 
 ## select features
-
 paygap <- 
   paygap %>% 
-  select(-c(late_submit))
+  select(-c(late_submit, delay))
 
+
+## review structure
 str(paygap)
+
+## save as working data set (Rdata)
+saveRDS(paygap, 'gender_paygap/data/processed/paygap_clean.rda')
+
+## create updated tidy long version
+
+paygap_long <-
+  paygap %>%
+  pivot_longer(
+    data = .,
+    # select columns that contain metrics
+    cols = c(contains('Male') |
+               contains('Female') | contains('diff')),
+    names_to = 'metric',
+    values_to = 'value'
+  ) %>%
+  separate(
+    col = metric,
+    sep = "_",
+    into = c("sex", "metric"),
+    extra = "merge"
+  ) %>%
+  # create factors from categorical variables
+  mutate(
+    sex = factor(
+      sex,
+      levels = c("male", "female", "diff"),
+      labels = c("male", "female", "difference")
+    ),
+    metric = factor(metric)
+  ) 
+
+## save as working data set (Rdata)
+saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
+
+  
