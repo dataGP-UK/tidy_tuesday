@@ -8,11 +8,10 @@
 # setup ----
 
 library(tidyverse)
-library(finalfit)
 library(here)
 
-paygap_long <- readRDS(file = "gender_paygap/data/processed/paygap_tidy.rds")
-paygap <- readRDS(file = "gender_paygap/data/processed/paygap_clean.rds")
+paygap_long <- readRDS(file = "gender_paygap/data/processed/paygap_tidy.rda")
+paygap <- readRDS(file = "gender_paygap/data/processed/paygap_clean.rda")
 
 # univariate analysis ----
 
@@ -20,12 +19,10 @@ paygap <- readRDS(file = "gender_paygap/data/processed/paygap_clean.rds")
 
 ##  employer size and year due
 paygap %>% 
-  group_by(employer_size) %>% 
-  count()
+  count(employer_size)
 
 paygap %>% 
-  group_by(employer_size) %>% 
-  count %>% 
+  count(employer_size) %>% 
   ggplot() +
   geom_col(aes(x = employer_size, y = n))
 
@@ -33,12 +30,10 @@ paygap %>%
 ### decreasing frequency
 
 paygap %>% 
-  group_by(year_due) %>% 
-  count()
+  count(year_due)
 
 paygap %>% 
-  group_by(year_due) %>% 
-  count %>% 
+  count(year_due) %>% 
   ggplot() +
   geom_col(aes(x = year_due, y = n)) 
 
@@ -200,18 +195,8 @@ year_size <-
   paygap %>% 
   xtabs(~ employer_size + year_due, data = .) %>% 
   prop.table(margin = 2) %>% 
-  round(2)
-
-year_size
-
-### use this table to visualise distribution of employer size over time
-class(year_size)        # matrix
-attributes(year_size)   # explore matrix attributes
-
-### will need to be a dataframe for visualisation
-
-year_size <-
-  as_tibble(year_size) %>%
+  round(2) %>% 
+  as_tibble() %>%
   mutate(employer_size =
            factor(
              employer_size,
@@ -224,7 +209,8 @@ year_size <-
                "20,000 or more"
              )
            ),
-         year_due = as.integer(year_due)) 
+         year_due = as.integer(year_due))
+  
 
 year_size %>%
   ggplot() +
@@ -263,6 +249,5 @@ paygap_long %>%
   )) %>% 
   ggplot() +
   geom_col(aes(x = quartile, y = median, fill = sex), position = 'stack')
-
 
 
