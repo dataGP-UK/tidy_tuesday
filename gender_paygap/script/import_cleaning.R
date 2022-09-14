@@ -19,7 +19,7 @@ paygap <-
     '/data/2022/2022-06-28/paygap.csv'))
 
 # save raw data to data folder
-write_csv(paygap, 'gender_paygap/data/raw/paygap_raw.csv')
+# write_csv(paygap, 'gender_paygap/data/raw/paygap_raw.csv')
 
 # initial exploration ----
 
@@ -39,8 +39,8 @@ paygap <-
 
 ###  employer_size ----
 
-# this is ordinal data so ensure ordered factor created
 # missing data currently labelled as "Not provided"
+# this is ordinal data so ensure ordered factor created
 
 paygap <-
   paygap %>%
@@ -63,21 +63,56 @@ paygap <-
   )
 
 # check output
-class(paygap$employer_size)
 unique(paygap$employer_size)
 
-### create year_due ----
+### year  ----
 
 # POSIXct variables for date submitted and due date but no 'year' variables
+# interested in year that data relates to so create 'year_due' variable
+# create as discrete numeric variable (integer)
 
 paygap <- 
   paygap %>% 
   mutate(
     # use lubridate::year() to extract year
-    year_submitted = year(date_submitted),
-    year_due = year(due_date)
+    year_due = as.integer(year(due_date))
   ) 
 
+### sex ----
+
+# many of the quantitative variables have male and female versions
+# transform data to long format with new categorical variables
+
+#   - 'sex' to include 'male', 'female', and 'difference'
+#   - 'metric' to include each of the reported metrics
+
+paygap_long <-
+  paygap %>%
+  pivot_longer(
+    data = .,
+    # select columns that contain metrics
+    cols = c(contains('Male') |
+               contains('Female') | contains('diff')),
+    names_to = 'metric',
+    values_to = 'value'
+  ) %>%
+  # split data further by 'sex' - includes metrics relating to each sex
+  # plus those that describe the difference in values between sexes
+  separate(
+    col = metric,
+    sep = "_",
+    into = c("sex", "metric"),
+    extra = "merge"
+  ) %>%
+  # create factors from categorical variables
+  mutate(
+    sex = factor(
+      sex,
+      levels = c("male", "female", "diff"),
+      labels = c("male", "female", "difference")
+      ),
+    metric = factor(metric)
+    ) 
 
 # quality assessment ----
 
@@ -310,13 +345,10 @@ paygap %>%
   select(contains('quartile')) %>% 
   summary()
 
-# these are percentages and all are valid
+# these are percentages and all are valid ie. between 0-100%
 
 ## for each quartile - male % + female % should equal 100%
-
-
-
-
+## not sure if this is something that is worth checking
 
 
 # completeness ----
@@ -497,14 +529,13 @@ finalfit::missing_plot(complete_paygap)
 # submitted_after_the_deadline is not accurate and would be better replaced
 # by late_submit in working dataset. ACCURACY
 
-###  create working data set ----
+##  finalise working data sets ----
 
 # with year representing year due. 
 # date_submitted variable and duplicate entries removed.
 
-paygap_w <- 
-  paygap %>% 
-  mutate(year = lubridate::year(due_date)) %>% 
-  # remove variable relating to date of submission
-  select(-c(date_submitted, submitted_after_the_deadline)) %>% 
-  unique()
+# paygap_w <- 
+#   paygap %>% 
+#   # remove variable relating to date of submission
+#   select(-c(date_submitted, submitted_after_the_deadline)) %>% 
+#   unique()
