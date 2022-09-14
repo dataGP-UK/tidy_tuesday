@@ -236,27 +236,23 @@ paygap <-
 
 ## explore delays in submitting data ----
 
-## create dataframe including calculation of delay
-submission_delays <- 
+## add variables including delay and whether submission late
+paygap <- 
   paygap %>% 
   mutate(
     delay = date_submitted - due_date,
     delay = as.numeric(as.duration(delay), 'days'),
     late_submit = delay > 0) 
 
-submission_delays %>% 
-  select(date_submitted, year_due,  due_date, delay,
-         late_submit, submitted_after_the_deadline)
-
 ## numerically
 
-summary(submission_delays$delay) 
+summary(paygap$delay) 
 
 ## graphically
-submission_delays$delay %>% hist() # approx normal distribution
-submission_delays$delay %>% boxplot() # multiple high and low outliers
+paygap$delay %>% hist() # approx normal distribution
+paygap$delay %>% boxplot() # multiple high and low outliers
 
-### interpretation
+## interpretation
 
 # mean and median values consistent with no delays on average
 # but outliers call into question timeliness & validity of data
