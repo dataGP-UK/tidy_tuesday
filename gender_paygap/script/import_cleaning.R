@@ -230,7 +230,10 @@ paygap <-
   paygap %>% 
   group_by(employer_id, year_due) %>% 
   arrange(desc(date_submitted)) %>%
-  slice(1)
+  slice(1) %>%
+  ungroup()
+
+rm(duplicates)
 
 # timeliness ----
 
@@ -267,9 +270,6 @@ paygap$delay %>% boxplot() # multiple high and low outliers
 # create dataframe of early submissions
 early_submissions <- 
   paygap %>% 
-  mutate(
-    delay = date_submitted - due_date,
-    delay = as.numeric(as.duration(delay), 'days')) %>% 
   filter(
     delay <= -366
   ) 
@@ -292,14 +292,16 @@ early_submissions$year_submitted %>% unique()   # only appears to be 2020
 # may need to remove values reported well in advance of due date if analysing
 # time series data - ? use filtering join
 
-## are there any other patterns
-# employers who have submitted data early multiple times
+### are there any other patterns ----
+
+# no employers submitted data early multiple times
 early_submissions %>% 
   group_by(current_name) %>% 
   count() %>% 
   filter(n > 1) %>% 
-  nrow()
-# there are none
+  nrow()  # 0
+
+rm(early_submissions)
 
 ## numeric variables ----
 ## explore ranges and distribution
@@ -350,9 +352,7 @@ paygap %>%
 
 # these are percentages and all are valid ie. between 0-100%
 
-## for each quartile - male % + female % should equal 100%
-## not sure if this is something that is worth checking
-
+# TO DO: check if male + female = 100% for each metric
 
 # completeness ----
 
@@ -360,102 +360,61 @@ paygap %>%
 
 ## explicit missing data ----
 
-pct_miss(paygap_w)          # 2.6 %
-pct_miss_case(paygap_w)     # 27.0 %
-pct_complete_case(paygap_w) # 73.0 %
+pct_miss(paygap)          # 2.0 % of all data missing
+pct_miss_case(paygap)     # 27.0 % of all observations have some missing data
+pct_complete_case(paygap) # 73.0 % of observations have complete data
 
-gg_miss_var(paygap_w, show_pct = TRUE)
+# visualise missing data 
+
+paygap %>% 
+  gg_miss_var(show_pct = TRUE)
 
 ## variables containing missing data:
-## diff bonus %, sic_codes, employer size, hourly rate quartiles, post code
+## diff bonus %, sic_codes, employer size, hourly rate quartiles, postcode
 
-### bonus percent ----
+# explore most critical variables relating to metrics being analysed
 
-# most significant area of missing date is around % differences in bonuses 
+### diff bonus percent ----
+
+# largest amount of missing data is for % differences in bonuses 
 # between males and females
 
-# this may be related to data on percentage of males/females paid a bonus
-# however there is no missing data for either of these categories
-
-## explore distribution
-paygap_w %>%
-  # create long format data to allow comparisons when visualising
-  pivot_longer(
-    cols = contains(c('percent', 'quartile')),
-    names_to = 'vars',
-    values_to = 'vals'
-    ) %>% 
-  filter(vars %in% c('male_bonus_percent', 'female_bonus_percent')) %>% 
-  ggplot(aes(x=vals)) +
-  geom_histogram() +
-  facet_wrap(~ vars, ncol = 1)
-
-### bimodal distribution: bonus % either low or high - few in middle
-### most frequent percentage is zero
-### is this related to employer size?
-
-paygap_w %>%
-  pivot_longer(
-    cols = contains(c('percent', 'quartile')),
-    names_to = 'vars',
-    values_to = 'vals'
-  ) %>% 
-  filter(vars %in% c('male_bonus_percent', 'female_bonus_percent')) %>% 
-  ggplot(aes(x=vals)) +
-  geom_histogram() +
-  # visualise by sex and employer size
-  facet_grid(rows = vars(vars), cols = vars(employer_size))
-
-### to do: proportion of companies paying bonus by size ?sex difference
-
-## there are 8932 observations with missing date for difference in bonuses
+## there are 8932 observations with missing date for diff bonus percent
 ## but no missing values for percent employees receiving bonus
 
 ## if either no males or no females paid a bonus then it will not be possible
 ## calculate a difference in bonus paid - therefore mean/median will = NA
 
-## check if employers who don't pay a bonus are those with missing values 
-paygap_w %>% 
+## if both sexes paid a bonus then data is missing for some reason
+
+## employers who don't pay a bonus to one or both sexes
+paygap %>% 
   filter(female_bonus_percent == 0 | male_bonus_percent == 0) %>% 
   summarise(missing_mean = sum(is.na(diff_mean_bonus_percent)),
             missing_median = sum(is.na(diff_median_bonus_percent)))
 
 # it appears that most of missing values relate employers where bonuses 
-# are not paid to either or both males or females
+# are not paid to either (or both) males or females
 
-# are there some missing values where bonuses are paid to both sexes?
-missing_bonus <-
-  paygap_w %>%
+# missing values where bonuses are paid to both sexes
+
+paygap %>%
   # select observations where bonuses are paid to male and female but there
   # is still missing data for values of mean or median difference in bonus %
   filter((female_bonus_percent != 0 & male_bonus_percent != 0) &
-           (
-             is.na(diff_median_bonus_percent) |
-               is.na(diff_mean_bonus_percent)
-           )) %>%
-  select(
-    employer_id,
-    diff_mean_bonus_percent,
-    diff_median_bonus_percent,
-    male_bonus_percent,
-    female_bonus_percent,
-    everything()
-  ) %>%
-  arrange(employer_id)
-
-missing_bonus
+           (is.na(diff_median_bonus_percent) | is.na(diff_mean_bonus_percent)
+            )
+         )%>%
+  nrow() 
 
 ## there are 14 observations where data where males and females receive a bonus 
 ## and no value for mean and/or median difference available
 
-missing_plot(missing_bonus)  # no additional pattern evident
-
 ## TO DO: decide how to handle missing data in these 14 observations
 
+#### hourly pay quartile metrics ----
 
-#### hourly pay quartile ----
-
-paygap_w %>% 
+paygap %>% 
   select(contains('quartile')) %>%
   summary()
 
@@ -464,21 +423,20 @@ paygap_w %>%
 ## variables.
 
 # are all missing values in same observations
-paygap_w %>% 
+paygap %>% 
   select(contains('quartile')) %>%
   # plot missingness by variable and observation
   missing_plot()
 
 ## it appears that data is missing across all quartiles for 392 observations
-## ie. there is either data for all quartiles and sexes or for none
-
+## ie. there is either data for all quartiles or for none
 
 #### employer size ----
 
 # explore whether missing data in other variables related to categories of 
 # employer size (including where employer size is NA)
 
-paygap_w %>% 
+paygap %>% 
   gg_miss_var(show_pct = TRUE, facet = employer_size)
 
 ## it appears that as employer size increases the percent of missing data for
@@ -492,8 +450,8 @@ paygap_w %>%
 ## ie. are there years missing that don't show up with any values?
 
 complete_paygap <-
-  paygap_w %>%
-  complete(employer_id, year)
+  paygap %>%
+  complete(employer_id, year_due)
 
 summary(complete_paygap)
 
@@ -501,44 +459,54 @@ summary(complete_paygap)
 # explore if there are any patterns in this data
 
 complete_paygap %>% 
-  select(employer_id, year, current_name) %>% 
-  group_by(year) %>% 
+  select(employer_id, year_due, current_name) %>% 
+  group_by(year_due) %>% 
   summarise(missing_data = sum(is.na(current_name))) %>% 
   ggplot() +
-  geom_col(aes(year, missing_data))
+  geom_col(aes(year_due, missing_data))
 
 # i can understand why data incomplete for 2023 but unsure why other years
 # especially spike in missing data for 2020
 
 # what data is there for 2023 considering that this is next year?
-paygap_w %>% 
-  filter(year == 2023) %>% 
-  select(employer_id, current_name, due_date, year) %>% 
-  n_distinct()
+paygap %>% 
+  filter(year_due == 2023) %>% 
+  nrow()
 
 # 125 companies have submitted data for next year already
-# for this analysis I will exclude these observations
 
 
-# i would now like to plot missing data by year and company
+## accuracy ----
 
-finalfit::missing_plot(complete_paygap)
+### submitted_after_the_deadline ----
 
+# assess accuracy by comparing with late_submit which has been calculated from
+# the dates provided
 
+paygap %>% 
+  xtabs(~ submitted_after_the_deadline + late_submit, data = .)
 
+## accuracy = total correct / total observations
+## ~ 92% accurate - I am unsure why these don't match 100%
+## it could be a data collection issue
+## plan: replace submitted_after_the_deadline with values from late_submiy
 
+paygap <- 
+  paygap %>% 
+  mutate(
+    submitted_after_the_deadline = late_submit
+  )
 
+## consistency ----
 
-# submitted_after_the_deadline is not accurate and would be better replaced
-# by late_submit in working dataset. ACCURACY
+# no concerns evident from initial exploration
 
-##  finalise working data sets ----
+# Finalise clean working data sets ----
 
-# with year representing year due. 
-# date_submitted variable and duplicate entries removed.
+## select features
 
-# paygap_w <- 
-#   paygap %>% 
-#   # remove variable relating to date of submission
-#   select(-c(date_submitted, submitted_after_the_deadline)) %>% 
-#   unique()
+paygap <- 
+  paygap %>% 
+  select(-c(late_submit))
+
+str(paygap)
