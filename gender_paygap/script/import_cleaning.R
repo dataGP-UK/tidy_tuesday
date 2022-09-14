@@ -68,14 +68,14 @@ unique(paygap$employer_size)
 ### year  ----
 
 # POSIXct variables for date submitted and due date but no 'year' variables
-# interested in year that data relates to so create 'year_due' variable
 # create as discrete numeric variable (integer)
 
 paygap <- 
   paygap %>% 
   mutate(
     # use lubridate::year() to extract year
-    year_due = as.integer(year(due_date))
+    year_due = as.integer(year(due_date)),
+    year_submitted = as.integer(year(date_submitted))
   ) 
 
 ### sex ----
@@ -224,6 +224,13 @@ duplicates %>%
 
 # this handles all duplicated values by using the most up to data copy as the
 # current data when there is a duplicate observation by employer id and year
+
+# apply option 2 to paygap dataset so most recent data used
+paygap <- 
+  paygap %>% 
+  group_by(employer_id, year_due) %>% 
+  arrange(desc(date_submitted)) %>%
+  slice(1)
 
 # timeliness ----
 
