@@ -11,7 +11,7 @@ library(tidyverse)
 library(lubridate)
 library(here)
 
-## upload csv files from gov.uk website 
+# upload csv files from gov.uk website ----
 
 years <- as.character(c(2017, 2018, 2019, 2020, 2021, 2022))
 url <- "https://gender-pay-gap.service.gov.uk/viewing/download-data/"
@@ -27,12 +27,14 @@ paygap_raw <-
     do.call("rbind", list(download_2017, download_2018, download_2019, 
                           download_2020, download_2021, download_2022))
 
-# save raw data
+## save raw data ----
 
-# clean data
+write_csv(paygap_raw, "gender_paygap/data/raw/paygap_raw.csv")
+
+# clean data ----
 
 paygap <-
-    paygap %>%
+    paygap_raw %>%
     janitor::clean_names() %>%  
     mutate(
         across(c(due_date, date_submitted), as_datetime),
@@ -75,7 +77,13 @@ paygap <-
     slice(1) %>%
     ungroup()
 
-# save clean data
+## save clean data ----
+
+write_csv(paygap, "gender_paygap/data/processed/paygap_clean.csv")
+saveRDS(paygap, "gender_paygap/data/processed/paygap_clean.rda")
+
+
+# tidy data ----
 
 paygap_long <-
     paygap %>%
@@ -99,10 +107,20 @@ paygap_long <-
     ),
     metric = factor(metric))
 
-## save tidy data
+## save tidy data ----
 
-saveRDS(paygap, 'gender_paygap/data/processed/paygap_clean.rda')
+write_csv(paygap_long, "gender_paygap/data/processed/paygap_tidy.csv")
 saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
 
-paygap %>%
-    write_csv("gender_paygap/data/raw/paygap_raw.csv")
+
+
+rm(
+    download_2017,
+    download_2018,
+    download_2019,
+    download_2020,
+    download_2021,
+    download_2022,
+    years,
+    url
+)
