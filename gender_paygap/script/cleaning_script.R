@@ -13,19 +13,22 @@ library(here)
 
 # upload csv files from gov.uk website ----
 
+# using for loops
+
+## create vector of filepaths
 years <- as.character(c(2017, 2018, 2019, 2020, 2021, 2022))
 url <- "https://gender-pay-gap.service.gov.uk/viewing/download-data/"
+filepath <- as.character()
+for (i in years) {
+    filepath[i] <- paste0(url, i)
+}
 
-download_2017 <- read_csv(paste0(url, years[1]))
-download_2018 <- read_csv(paste0(url, years[2]))
-download_2019 <- read_csv(paste0(url, years[3]))
-download_2020 <- read_csv(paste0(url, years[4]))
-download_2021 <- read_csv(paste0(url, years[5]))
-download_2022 <- read_csv(paste0(url, years[6]))
-
-paygap_raw <- 
-    do.call("rbind", list(download_2017, download_2018, download_2019, 
-                          download_2020, download_2021, download_2022))
+## iterate over filepaths to create concatenated dataframe
+paygap_raw <- tibble()
+for (i in 1:length(filepath)) {
+    new_data <- read_csv(filepath[i])
+    paygap_raw <- rbind(paygap_raw, new_data)
+}
 
 ## save raw data ----
 
@@ -113,14 +116,4 @@ write_csv(paygap_long, "gender_paygap/data/processed/paygap_tidy.csv")
 saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
 
 
-
-rm(
-    download_2017,
-    download_2018,
-    download_2019,
-    download_2020,
-    download_2021,
-    download_2022,
-    years,
-    url
-)
+rm(new_data, filepath, i, url, years)
