@@ -19,18 +19,10 @@ paygap <-
     'https://raw.githubusercontent.com/rfordatascience/tidytuesday/master',
     '/data/2022/2022-06-28/paygap.csv'))
 
-paygap <- 
-  paygap %>% 
-  # remove redundant variables that will not be used in analysis
-  select(-c(address, company_number,
-            company_link_to_gpg_info, responsible_person))
-
 paygap <-
   paygap %>%
   mutate(
-    # replace 'Not Provided' with NA
     employer_size = na_if(employer_size, 'Not Provided'),
-    # create ordered factor
     employer_size =
       factor(
         employer_size,
@@ -42,16 +34,17 @@ paygap <-
           "5000 to 19,999",
           "20,000 or more"
         )
-      )
-  )
-
+      ),
+    year_due = as.integer(year(due_date)),
+    year_submitted = as.integer(year(date_submitted)),
+    delay = date_submitted - due_date,
+    delay = as.numeric(as.duration(delay), 'days'),
+    submitted_after_the_deadline = delay > 0)
+  
 paygap <- 
   paygap %>% 
-  mutate(
-    # use lubridate::year() to extract year
-    year_due = as.integer(year(due_date)),
-    year_submitted = as.integer(year(date_submitted))
-  ) 
+  select(-c(delay, address, company_number,
+            company_link_to_gpg_info, responsible_person))
 
 paygap <- 
   paygap %>% 
@@ -60,28 +53,10 @@ paygap <-
   slice(1) %>%
   ungroup()
 
-paygap <- 
-  paygap %>% 
-  mutate(
-    delay = date_submitted - due_date,
-    delay = as.numeric(as.duration(delay), 'days'),
-    late_submit = delay > 0) 
-
-paygap <- 
-  paygap %>% 
-  mutate(
-    submitted_after_the_deadline = late_submit
-  )
-
-paygap <- 
-  paygap %>% 
-  select(-c(late_submit, delay))
-
 paygap_long <-
   paygap %>%
   pivot_longer(
     data = .,
-    # select columns that contain metrics
     cols = c(contains('Male') |
                contains('Female') | contains('diff')),
     names_to = 'metric',
@@ -93,7 +68,6 @@ paygap_long <-
     into = c("sex", "metric"),
     extra = "merge"
   ) %>%
-  # create factors from categorical variables
   mutate(
     sex = factor(
       sex,
@@ -104,9 +78,9 @@ paygap_long <-
   ) 
 
 ## save as working data sets (Rdata)
-# saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
-# saveRDS(paygap, 'gender_paygap/data/processed/paygap_clean.rda')
 
+saveRDS(paygap, 'gender_paygap/data/processed/paygap_clean.rda')
+saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
 
 
 
