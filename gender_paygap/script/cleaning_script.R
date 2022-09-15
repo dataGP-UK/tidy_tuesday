@@ -13,12 +13,23 @@ library(here)
 
 ## upload csv files from gov.uk website 
 
-## can't find direct link to csv files so will download manually into folder
-## ~/gender_paygap/data/raw/downloads
+years <- as.character(c(2017, 2018, 2019, 2020, 2021, 2022))
+url <- "https://gender-pay-gap.service.gov.uk/viewing/download-data/"
 
-paygap <- vroom::vroom(
-    fs::dir_ls(path = "gender_paygap/data/raw/downloads", glob = "*csv")
-    )
+download_2017 <- read_csv(paste0(url, years[1]))
+download_2018 <- read_csv(paste0(url, years[2]))
+download_2019 <- read_csv(paste0(url, years[3]))
+download_2020 <- read_csv(paste0(url, years[4]))
+download_2021 <- read_csv(paste0(url, years[5]))
+download_2022 <- read_csv(paste0(url, years[6]))
+
+paygap_raw <- 
+    do.call("rbind", list(download_2017, download_2018, download_2019, 
+                          download_2020, download_2021, download_2022))
+
+# save raw data
+
+# clean data
 
 paygap <-
     paygap %>%
@@ -64,6 +75,8 @@ paygap <-
     slice(1) %>%
     ungroup()
 
+# save clean data
+
 paygap_long <-
     paygap %>%
     pivot_longer(
@@ -86,7 +99,7 @@ paygap_long <-
     ),
     metric = factor(metric))
 
-## save as working data sets (Rdata)
+## save tidy data
 
 saveRDS(paygap, 'gender_paygap/data/processed/paygap_clean.rda')
 saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
