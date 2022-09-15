@@ -9,36 +9,24 @@
 
 library(tidyverse)
 library(lubridate)
-library(vroom)
-library(fs)
 library(here)
 
 ## upload csv files from gov.uk website 
 
 ## can't find direct link to csv files so will download manually into folder
-## /gender_paygap/data/raw/downloads
+## ~/gender_paygap/data/raw/downloads
 
-pay_files <-
+paygap <- vroom::vroom(
     fs::dir_ls(path = "gender_paygap/data/raw/downloads", glob = "*csv")
-raw_df <- vroom::vroom(pay_files)
+    )
 
-paygap <- raw_df %>%  
-    janitor::clean_names() %>%  
-    mutate(
-        across(c(due_date, date_submitted),lubridate::as_datetime),
-        employer_name = str_remove_all(employer_name, "\""),
-        employer_name = str_replace_all(employer_name, ", |,", ", ")
-    ) 
-
-clean_df %>% 
-    write_csv("gender_paygap/data/raw/paygap_current.csv")
-
-paygap <-
-    read_csv("gender_paygap/data/raw/paygap_current.csv")
-       
 paygap <-
     paygap %>%
+    janitor::clean_names() %>%  
     mutate(
+        across(c(due_date, date_submitted), as_datetime),
+        employer_name = str_remove_all(employer_name, "\""),
+        employer_name = str_replace_all(employer_name, ", |,", ", "),
         employer_size = na_if(employer_size, 'Not Provided'),
         employer_size =
             factor(
@@ -100,9 +88,8 @@ paygap_long <-
 
 ## save as working data sets (Rdata)
 
-# saveRDS(paygap, 'gender_paygap/data/processed/paygap_clean.rda')
-# saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
+saveRDS(paygap, 'gender_paygap/data/processed/paygap_clean.rda')
+saveRDS(paygap_long, 'gender_paygap/data/processed/paygap_tidy.rda')
 
-
-clean_df %>% 
-    write_csv("gender_paygap/data/raw/paygap_current.csv")
+paygap %>%
+    write_csv("gender_paygap/data/raw/paygap_raw.csv")
