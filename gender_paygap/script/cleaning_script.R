@@ -16,6 +16,7 @@ library(here)
 # using a function
 source("gender_paygap/script/functions/download_paygap.R")
 paygap_raw <- download_paygap()
+rm(download_paygap)
 
 ## save raw data ----
 
@@ -25,11 +26,15 @@ write_csv(paygap_raw, "gender_paygap/data/raw/paygap_raw.csv")
 
 paygap <-
     paygap_raw %>%
+    # create consistent clean variable names
     janitor::clean_names() %>%  
     mutate(
+        # ensure dates in correct format
         across(c(due_date, date_submitted), as_datetime),
+        # tidy up employer names
         employer_name = str_remove_all(employer_name, "\""),
         employer_name = str_replace_all(employer_name, ", |,", ", "),
+        # convert employer_size into ordered factor with NAs
         employer_size = na_if(employer_size, 'Not Provided'),
         employer_size =
             factor(
@@ -43,26 +48,15 @@ paygap <-
                     "20,000 or more"
                 )
             ),
-        year_due = as.integer(year(due_date)),
-        year_submitted = as.integer(year(date_submitted)),
+        # year that data relates to ('snapshot' date)
+        year = as.integer(year(due_date - years(1))),
+        # calculate if submission late
         delay = date_submitted - due_date,
         delay = as.numeric(as.duration(delay), 'days'),
-        submitted_after_the_deadline = delay > 0
-    )
-
-paygap <-
-    paygap %>%
-    select(-c(
-        delay,
-        address,
-        company_number,
-        company_link_to_gpg_info,
-        responsible_person
-    ))
-
-paygap <-
-    paygap %>%
-    group_by(employer_id, year_due) %>%
+        late_submission = delay > 0
+    ) %>% 
+    # remove duplicates where data resubmitted for same year
+    group_by(employer_id, year) %>%
     arrange(desc(date_submitted)) %>%
     slice(1) %>%
     ungroup()
@@ -75,6 +69,7 @@ saveRDS(paygap, "gender_paygap/data/processed/paygap_clean.rda")
 
 # tidy data ----
 
+# convert into long format
 paygap_long <-
     paygap %>%
     pivot_longer(

@@ -1,5 +1,7 @@
 # tidy tuesday: Data on UK gender pay gap
 
+# quality assessment
+
 # author: Simon Hulme
 # organisation: dataGP-UK
 
@@ -32,8 +34,7 @@ summary(paygap)
 paygap <- 
   paygap %>% 
   # remove redundant variables that will not be used in analysis
-  select(-c(address, company_number,
-            company_link_to_gpg_info, responsible_person))
+  select(-c(address, company_link_to_gpg_info, responsible_person))
 
 ## manage categorical variables ----
 
@@ -67,6 +68,12 @@ unique(paygap$employer_size)
 
 ### year  ----
 
+# what year is most useful for analysis
+# data provided is for due date and date of submission
+# guidance relates to 'snapshot date' which is 12 months prior to due date
+# this is the date that all the data relates to so therefore this should be
+# the 'year' that is added to the table
+
 # POSIXct variables for date submitted and due date but no 'year' variables
 # create as discrete numeric variable (integer)
 
@@ -74,8 +81,7 @@ paygap <-
   paygap %>% 
   mutate(
     # use lubridate::year() to extract year
-    year_due = as.integer(year(due_date)),
-    year_submitted = as.integer(year(date_submitted))
+      year = as.integer(year(due_date - years(1)))
   ) 
 
 ### sex ----
@@ -217,9 +223,9 @@ duplicates %>%
 
 ## 2.) remove duplicate entries by retaining most recent observation
 duplicates %>% 
-  group_by(employer_id, year_due) %>% 
+  group_by(employer_id, year) %>% 
   arrange(desc(date_submitted)) %>% 
-  select(current_name, date_submitted, year_due) %>% 
+  select(current_name, date_submitted, year) %>% 
   slice(1)
 
 # this handles all duplicated values by using the most up to data copy as the
@@ -228,7 +234,7 @@ duplicates %>%
 # apply option 2 to paygap dataset so most recent data used
 paygap <- 
   paygap %>% 
-  group_by(employer_id, year_due) %>% 
+  group_by(employer_id, year) %>% 
   arrange(desc(date_submitted)) %>%
   slice(1) %>%
   ungroup()
