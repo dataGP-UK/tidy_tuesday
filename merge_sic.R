@@ -91,24 +91,25 @@ df %>%
 # employer ids where sic code 1 submitted
 code1_id <- 
     df %>% 
-    filter(sic_codes == 1) %>% 
-    pull(employer_id)
+    filter(sic_codes == '00001') %>% 
+    pull(employer_id) %>% 
+    unique()
 
 df %>% 
     filter(employer_id %in% code1_id) %>% 
-    group_by(employer_id) %>% 
+    group_by(employer_id, year_due) %>% 
     count(sort = TRUE) %>% 
-    ungroup() %>%
-    count(n)
+    ungroup() %>% 
+    filter(n == 1)
 
 # in 402 cases SIC == 1 is the only code entered
 
 # can an appropriate code and description be imputed in these cases
 
-by_row <- 
-    by_row %>% 
+
+  df %>% 
     mutate(
-        sic_codes = na_if(sic_codes, 1))
+        sic_codes = na_if(sic_codes, '00001')) %>% view
 
 by_row %>% 
     filter(employer_id %in% sic_1) %>% 
