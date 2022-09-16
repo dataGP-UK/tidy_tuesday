@@ -42,7 +42,7 @@ paygap %>%
 sum(paygap$late_submission)
 round(mean(paygap$late_submission) * 100)
 
-length(unique(paygap[paygap$delay < -365, ]$employer_id))
+length(unique(paygap[paygap$delay < -366, ]$employer_id))
 ```
 
 It is a legal requirement for all employers who are required to report and publish their gender pay gap information to accurately report this information. Failing to do this within one year of the snapshot date is unlawful. The Equality and Human Rights Commission has the power to enforce any failure to comply with the regulations. Employers that fail to report on time, or report inaccurate data, will be in breach of the regulations and risk facing enforcement action from the Equality and Human Rights Commission (EHRC), leading to court orders and fines.
@@ -94,43 +94,54 @@ Hourly pay quartiles
 ```{r validity}
 
 # early data submission
+
 paygap %>% 
-    filter(delay < -365) %>%
-    group_by(year) %>% 
-    count()
-```
+    filter(delay < -366) %>% 
+    group_by(snapshot_date) %>% 
+    summarise(
+        n = n(),
+        min_delay = min(delay),
+        mean_delay = mean(delay),
+        max_delay = max(delay)
+    )
 
-It was identified during assessment of timeliness that on 104 occasions employers had submitted gender pay gap data prior to their 'snapshot' date. Further investigation revealed that no employer submitted early more than once and that the majority of instances were in 2020 with a few in 2019. This coincides with the covid-19 pandemic and may have been the result of relaxation of due dates for reporting due to this.
+# percent paid a bonus 
 
-My hypothesis is that the due date for these entries was moved due to the pandemic.
-
-```{r}
-
-
-# may need to remove values reported well in advance of due date if analysing
-# time series data - ? use filtering join
-
-### are there any other patterns ----
-
-# no employers submitted data early multiple times
-early_submissions %>% 
-  group_by(current_name) %>% 
-  count() %>% 
-  filter(n > 1) %>% 
-  nrow()  # 0
-
-rm(early_submissions)
-
-## numeric variables ----
-## explore ranges and distribution
-
-### bonus_percent ---- 
-
-# ?any values < 0% or > 100%
 paygap %>%
   select(male_bonus_percent, female_bonus_percent) %>%
  summary()
 
+paygap %>% 
+    filter(female_bonus_percent > 100)  # reported that 100.4% of females received a bonus
+
+# percent differences between males and females
+
+paygap %>% 
+  select(contains('diff')) %>% 
+  summary()
+```
+
+### Early submission
+
+It was identified during assessment of timeliness that on 96 occasions employers had submitted gender pay gap data prior to their 'snapshot' date. Further investigation revealed that no employer submitted early more than once and that these were all in 2021 and had a due date 6 months later than usual. This coincides with the covid-19 pandemic and may have been the result of relaxation of due dates for reporting due to this. I feel that these submissions are an accurate reflection of the situation on the snapshot day in 2019.
+
+### Bonus percent
+
+This refers to the percentage of men and women receiving bonus pay. As a percentage no values should be less than 0% or greater than 100%. Only one employer provided invalid results with 100.4% of women reported as being paid a bonus
+
+### Percent difference hourly pay or bonus
+
+### 
+
+```{r}
+
+
+
+
+
+
+
+#
 ## may be an issue with max female paid bonus of 100.4% (>100%)
 
 ### percent_difference ----
