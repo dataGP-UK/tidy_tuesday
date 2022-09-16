@@ -114,11 +114,19 @@ paygap %>%
 paygap %>% 
     filter(female_bonus_percent > 100)  # reported that 100.4% of females received a bonus
 
-# percent differences between males and females
+# difference in hourly pay (percent)
 
 paygap %>% 
-  select(contains('diff')) %>% 
+  select(diff_mean_hourly_percent, diff_median_hourly_percent) %>% 
   summary()
+
+paygap %>% 
+  ggplot(aes(y = diff_mean_bonus_percent)) +
+  geom_boxplot()
+
+paygap %>% 
+  ggplot(aes(y = diff_median_bonus_percent)) +
+  geom_boxplot() 
 ```
 
 ### Early submission
@@ -129,25 +137,16 @@ It was identified during assessment of timeliness that on 96 occasions employers
 
 This refers to the percentage of men and women receiving bonus pay. As a percentage no values should be less than 0% or greater than 100%. Only one employer provided invalid results with 100.4% of women reported as being paid a bonus
 
-### Percent difference hourly pay or bonus
+### Difference in hourly percent
 
-### 
+Positive values = male paid \> female. Negative = male paid \< female.
+
+Mean and median may give different perspective on patterns of pay within an organisation.
+
+My be worth exploring where mean and median differ as this implies skewness/outliers
 
 ```{r}
 
-
-
-
-
-
-
-#
-## may be an issue with max female paid bonus of 100.4% (>100%)
-
-### percent_difference ----
-paygap %>% 
-  select(contains('diff')) %>% 
-  summary()
 
 ## there are some very large percentage differences between males and females
 ## especially for mean and median bonus percent
