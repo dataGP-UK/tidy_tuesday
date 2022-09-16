@@ -17,7 +17,7 @@ Most public authority employers must use a snapshot date of 31 March. They must 
 
 Private, voluntary, and all other public authority employers must use a snapshot date of 5 April. They must report and publish their gender pay gap information by 4 April of the following year.
 
-```{r}
+```{r timeliness}
 paygap %>% 
     summarise(min = min(delay),
               mean = mean(delay),
@@ -50,3 +50,125 @@ It is a legal requirement for all employers who are required to report and publi
 Most employers appear submit their data just before their deadline. However 0n 6764 (\~14%) occasions data was submitted late. The data shows that there is evidence of employers submitting data over 1500 days late. As well as being unlawful long delays could have implications for the accuracy of data.
 
 There were 104 occassions where employers appear to have submitted data over a year before their due date - therefore before their snapshot date. This calls into question the validity of this data.
+
+# Uniqueness
+
+```{r uniqueness}
+
+# check for duplication of observations
+sum(duplicated(paygap))
+
+# is employer_id a unique identifier
+nrow(paygap) / n_distinct(paygap$employer_id)
+# no there are nearly 4 times as many observations as employer ids
+
+# visualise 
+paygap %>% 
+  count(employer_id) %>% 
+  ggplot() +
+  geom_histogram(aes(n), binwidth = 0.5)
+
+# most employer ids appear to be associated with multiple records 
+# is there any evidence of >1 entry by employer in same year
+paygap %>% 
+  group_by(employer_id, year) %>% 
+  count() %>%
+    filter(n > 1) %>% 
+    nrow()
+```
+
+There are no duplicate records in this data set. There are multiple observations per employer id due to data being submitted across multiple years. There is only one observation per employer id:year pair - making this pairing a unique identifier. There were 4 occasions identified in the raw data where employers had entered 2 submissions for the same year. This was dealt with during data cleaning where only the most recent entry was retained.
+
+# Validity
+
+There were a number of areas to explore around validity of the data
+
+Early submission
+
+Bonus percent
+
+Percent difference
+
+Hourly pay quartiles
+
+```{r validity}
+
+# early data submission
+paygap %>% 
+    filter(delay < -365) %>%
+    group_by(year) %>% 
+    count()
+```
+
+It was identified during assessment of timeliness that on 104 occasions employers had submitted gender pay gap data prior to their 'snapshot' date. Further investigation revealed that no employer submitted early more than once and that the majority of instances were in 2020 with a few in 2019. This coincides with the covid-19 pandemic and may have been the result of relaxation of due dates for reporting due to this.
+
+My hypothesis is that the due date for these entries was moved due to the pandemic.
+
+```{r}
+
+
+# may need to remove values reported well in advance of due date if analysing
+# time series data - ? use filtering join
+
+### are there any other patterns ----
+
+# no employers submitted data early multiple times
+early_submissions %>% 
+  group_by(current_name) %>% 
+  count() %>% 
+  filter(n > 1) %>% 
+  nrow()  # 0
+
+rm(early_submissions)
+
+## numeric variables ----
+## explore ranges and distribution
+
+### bonus_percent ---- 
+
+# ?any values < 0% or > 100%
+paygap %>%
+  select(male_bonus_percent, female_bonus_percent) %>%
+ summary()
+
+## may be an issue with max female paid bonus of 100.4% (>100%)
+
+### percent_difference ----
+paygap %>% 
+  select(contains('diff')) %>% 
+  summary()
+
+## there are some very large percentage differences between males and females
+## especially for mean and median bonus percent
+
+### visualise distribution of these
+paygap %>% 
+  ggplot(aes(y = diff_mean_bonus_percent)) +
+  geom_boxplot()
+
+paygap %>% 
+  ggplot(aes(y = diff_median_bonus_percent)) +
+  geom_boxplot() 
+
+### View data
+paygap %>% 
+  arrange(diff_mean_bonus_percent) %>% 
+  head(20) %>% view
+
+paygap %>% 
+  arrange(diff_median_bonus_percent) %>% 
+  head(20) %>% view
+
+# these extremes may be possible values especially if bonuses are infrequent & 
+# uncommon e.g. executive bonus 
+# TO DO: may be an area to explore later
+
+### hourly pay quartiles ----
+paygap %>% 
+  select(contains('quartile')) %>% 
+  summary()
+
+# these are percentages and all are valid ie. between 0-100%
+
+# TO DO: check if male + female = 100% for each metric
+```
