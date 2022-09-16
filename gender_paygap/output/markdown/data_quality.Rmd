@@ -1,0 +1,52 @@
+---
+title: "Gender Pay Gap - Review of Data Quality"
+output: html_notebook
+---
+
+```{r set_up}
+library(tidyverse)
+library(here)
+
+# import clean data
+paygap <- read_rds(here('gender_paygap/data/processed/paygap_clean.rda'))
+```
+
+# Timeliness
+
+Most public authority employers must use a snapshot date of 31 March. They must report and publish their gender pay gap information by 30 March of the following year
+
+Private, voluntary, and all other public authority employers must use a snapshot date of 5 April. They must report and publish their gender pay gap information by 4 April of the following year.
+
+```{r}
+paygap %>% 
+    summarise(min = min(delay),
+              mean = mean(delay),
+              median = median(delay),
+              max = max(delay)) %>% 
+    round(1) 
+
+paygap %>% 
+    ggplot(aes(delay)) +
+    geom_histogram(bins = 30, ) +
+    geom_vline(xintercept = - 366, 
+               colour = 'red',
+               linetype = 'dashed')
+
+paygap %>% 
+    ggplot(aes(delay)) +
+    geom_boxplot(outlier.alpha = 0.1) +
+    geom_vline(xintercept = - 366, 
+               colour = 'red',
+               linetype = 'dashed')
+
+sum(paygap$late_submission)
+round(mean(paygap$late_submission) * 100)
+
+length(unique(paygap[paygap$delay < -365, ]$employer_id))
+```
+
+It is a legal requirement for all employers who are required to report and publish their gender pay gap information to accurately report this information. Failing to do this within one year of the snapshot date is unlawful. The Equality and Human Rights Commission has the power to enforce any failure to comply with the regulations. Employers that fail to report on time, or report inaccurate data, will be in breach of the regulations and risk facing enforcement action from the Equality and Human Rights Commission (EHRC), leading to court orders and fines.
+
+Most employers appear submit their data just before their deadline. However 0n 6764 (\~14%) occasions data was submitted late. The data shows that there is evidence of employers submitting data over 1500 days late. As well as being unlawful long delays could have implications for the accuracy of data.
+
+There were 104 occassions where employers appear to have submitted data over a year before their due date - therefore before their snapshot date. This calls into question the validity of this data.
