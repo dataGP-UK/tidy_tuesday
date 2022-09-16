@@ -1,0 +1,8 @@
+---
+title: "README"
+author: "Simon Hulme"
+date: "2022-09-16"
+output: github_document
+---
+
+Description of gender pay gap project
