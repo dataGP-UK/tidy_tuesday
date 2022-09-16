@@ -9,7 +9,6 @@
 
 library(tidyverse)
 library(lubridate)
-library(here)
 
 # upload csv files from gov.uk website ----
 
@@ -49,7 +48,8 @@ paygap <-
                 )
             ),
         # year that data relates to ('snapshot' date)
-        year = as.integer(year(due_date - years(1))),
+        snapshot_date = due_date - years(1),
+        year = as.integer(snapshot_date),
         # calculate if submission late
         delay = date_submitted - due_date,
         delay = as.numeric(as.duration(delay), 'days'),
