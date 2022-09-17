@@ -6,6 +6,7 @@ output: html_notebook
 ```{r set_up}
 library(tidyverse)
 library(here)
+library(naniar)
 
 # import clean data
 paygap <- read_rds(here('gender_paygap/data/processed/paygap_clean.rda'))
@@ -16,6 +17,8 @@ paygap <- read_rds(here('gender_paygap/data/processed/paygap_clean.rda'))
 Most public authority employers must use a snapshot date of 31 March. They must report and publish their gender pay gap information by 30 March of the following year
 
 Private, voluntary, and all other public authority employers must use a snapshot date of 5 April. They must report and publish their gender pay gap information by 4 April of the following year.
+
+It is a legal requirement for all employers who are required to report and publish their gender pay gap information to accurately report this information. Failing to do this within one year of the snapshot date is unlawful. The Equality and Human Rights Commission has the power to enforce any failure to comply with the regulations. Employers that fail to report on time, or report inaccurate data, will be in breach of the regulations and risk facing enforcement action from the Equality and Human Rights Commission (EHRC), leading to court orders and fines.
 
 ```{r timeliness}
 paygap %>% 
@@ -45,11 +48,9 @@ round(mean(paygap$late_submission) * 100)
 length(unique(paygap[paygap$delay < -366, ]$employer_id))
 ```
 
-It is a legal requirement for all employers who are required to report and publish their gender pay gap information to accurately report this information. Failing to do this within one year of the snapshot date is unlawful. The Equality and Human Rights Commission has the power to enforce any failure to comply with the regulations. Employers that fail to report on time, or report inaccurate data, will be in breach of the regulations and risk facing enforcement action from the Equality and Human Rights Commission (EHRC), leading to court orders and fines.
+Most employers appear submit their data just before their deadline. However 0n 6764 (\~14%) occasions data was submitted late. The data shows that there is evidence of some employers submitting data over 1500 days late. As well as being unlawful long delays could have implications for the accuracy of data.
 
-Most employers appear submit their data just before their deadline. However 0n 6764 (\~14%) occasions data was submitted late. The data shows that there is evidence of employers submitting data over 1500 days late. As well as being unlawful long delays could have implications for the accuracy of data.
-
-There were 104 occassions where employers appear to have submitted data over a year before their due date - therefore before their snapshot date. This calls into question the validity of this data.
+There were 96 occasions where employers appear to have submitted data over a year before their due date - therefore before their snapshot date. This calls into question the validity of this data.
 
 # Uniqueness
 
@@ -83,15 +84,9 @@ There are no duplicate records in this data set. There are multiple observations
 
 There were a number of areas to explore around validity of the data
 
-Early submission
+### Early submission
 
-Bonus percent
-
-Percent difference
-
-Hourly pay quartiles
-
-```{r validity}
+```{r early_submit}
 
 # early data submission
 
@@ -104,20 +99,50 @@ paygap %>%
         mean_delay = mean(delay),
         max_delay = max(delay)
     )
+```
 
-# percent paid a bonus 
+It was identified during assessment of timeliness that on 96 occasions employers had submitted gender pay gap data prior to their 'snapshot' date. Further investigation revealed that these submissions were all in 2021 where the due date was 6 months later than usual. This coincides with the covid-19 pandemic and may have been the result of relaxation of due dates for reporting due to this. I feel that these submissions are an accurate reflection of the situation on the snapshot day in 2019 and no action needs to be taken.
 
+### Bonus percent
+
+```{r bonus_percent}
 paygap %>%
   select(male_bonus_percent, female_bonus_percent) %>%
  summary()
 
 paygap %>% 
-    filter(female_bonus_percent > 100)  # reported that 100.4% of females received a bonus
+    filter(female_bonus_percent > 100) %>% 
+    select(current_name, year, female_bonus_percent)
+# one employer reported 100.4% of females received a bonus
+```
 
-# difference in hourly pay (percent)
+This refers to the percentage of men and women receiving bonus pay. No values should be less than 0% or greater than 100%. All values were valid except for one employer who reported that 100.4% of women had been paid a bonus in 2021
 
+### Difference in hourly percent
+
+```{r diff_hourly_percent}
 paygap %>% 
   select(diff_mean_hourly_percent, diff_median_hourly_percent) %>% 
+  summary()
+
+paygap %>% 
+  ggplot(aes(y = diff_mean_hourly_percent)) +
+  geom_boxplot()
+
+paygap %>% 
+  ggplot(aes(y = diff_median_hourly_percent)) +
+  geom_boxplot() 
+```
+
+Positive values indicate that males paid more than females per hour whilst negative means that females paid more than males.
+
+The minimum value for median pay difference between males and females was around minus 500% - ie. women paid 5 times more per hour than men. The maximum value was around 120%. There are a number of outlying values - maybe calculate proportion values which are outliers?
+
+### Difference in bonus percent
+
+```{r diff_bonus_percent}
+paygap %>% 
+  select(diff_mean_bonus_percent, diff_median_bonus_percent) %>% 
   summary()
 
 paygap %>% 
@@ -129,56 +154,157 @@ paygap %>%
   geom_boxplot() 
 ```
 
-### Early submission
+Positive values indicate that males paid more than females as a bonus whilst negative means that females paid more than males.
 
-It was identified during assessment of timeliness that on 96 occasions employers had submitted gender pay gap data prior to their 'snapshot' date. Further investigation revealed that no employer submitted early more than once and that these were all in 2021 and had a due date 6 months later than usual. This coincides with the covid-19 pandemic and may have been the result of relaxation of due dates for reporting due to this. I feel that these submissions are an accurate reflection of the situation on the snapshot day in 2019.
+The minimum value for median pay difference between males and females was around minus 120000 %. The maximum value was 4000%.
 
-### Bonus percent
+These figures are extreme - especially where females paid 120000% more. Explore these employers in more detail. Investigation provides no clear evidence regarding validity - all values are possible. In real world situation these extreme values could be double checked with submitting organisation.
 
-This refers to the percentage of men and women receiving bonus pay. As a percentage no values should be less than 0% or greater than 100%. Only one employer provided invalid results with 100.4% of women reported as being paid a bonus
+## Hourly pay quartiles
 
-### Difference in hourly percent
-
-Positive values = male paid \> female. Negative = male paid \< female.
-
-Mean and median may give different perspective on patterns of pay within an organisation.
-
-My be worth exploring where mean and median differ as this implies skewness/outliers
-
-```{r}
-
-
-## there are some very large percentage differences between males and females
-## especially for mean and median bonus percent
-
-### visualise distribution of these
-paygap %>% 
-  ggplot(aes(y = diff_mean_bonus_percent)) +
-  geom_boxplot()
-
-paygap %>% 
-  ggplot(aes(y = diff_median_bonus_percent)) +
-  geom_boxplot() 
-
-### View data
-paygap %>% 
-  arrange(diff_mean_bonus_percent) %>% 
-  head(20) %>% view
-
-paygap %>% 
-  arrange(diff_median_bonus_percent) %>% 
-  head(20) %>% view
-
-# these extremes may be possible values especially if bonuses are infrequent & 
-# uncommon e.g. executive bonus 
-# TO DO: may be an area to explore later
-
-### hourly pay quartiles ----
+```{r hourly_pay_quartiles}
 paygap %>% 
   select(contains('quartile')) %>% 
   summary()
 
 # these are percentages and all are valid ie. between 0-100%
+# also average male plus average female values = 100% for each quartile
+```
 
-# TO DO: check if male + female = 100% for each metric
+All hourly pay quartile data appears to be valid
+
+## Males / females receiving bonus
+
+# Completeness
+
+## Explicit missing data
+
+```{r}
+paygap_selected <-  paygap %>%
+    select(-c(company_link_to_gpg_info,
+           company_number,
+           responsible_person))
+
+paygap_selected %>% 
+    pct_complete_case()
+
+paygap_selected %>% 
+    pct_miss_case()
+
+paygap_selected %>% 
+    pct_miss()
+
+paygap_selected %>% 
+    gg_miss_var(show_pct = TRUE)
+
+```
+
+When unimportant variables removed from data 73% of rows are complete leaving 27% having some missing data. 2.0% of all data is missing. The most frequent missing data is for difference in bonus percent followed by sic codes, employer size and then hourly pay quartiles.
+
+```{r diff_bonus_percent_NA}
+
+
+# largest amount of missing data is for % differences in bonuses 
+# between males and females
+
+## there are 8932 observations with missing date for diff bonus percent
+## but no missing values for percent employees receiving bonus
+
+## if either no males or no females paid a bonus then it will not be possible
+## calculate a difference in bonus paid - therefore mean/median will = NA
+
+## if both sexes paid a bonus then data is missing for some reason
+
+## employers who don't pay a bonus to one or both sexes
+paygap %>% 
+  filter(female_bonus_percent == 0 | male_bonus_percent == 0) %>% 
+  summarise(missing_mean = sum(is.na(diff_mean_bonus_percent)),
+            missing_median = sum(is.na(diff_median_bonus_percent)))
+
+# it appears that most of missing values relate employers where bonuses 
+# are not paid to either (or both) males or females
+
+# missing values where bonuses are paid to both sexes
+
+paygap %>%
+  # select observations where bonuses are paid to male and female but there
+  # is still missing data for values of mean or median difference in bonus %
+  filter((female_bonus_percent != 0 & male_bonus_percent != 0) &
+           (is.na(diff_median_bonus_percent) | is.na(diff_mean_bonus_percent)
+            )
+         )%>%
+  nrow() 
+
+## there are 14 observations where data where males and females receive a bonus 
+## and no value for mean and/or median difference available
+
+## TO DO: decide how to handle missing data in these 14 observations
+
+
+```
+
+```{r}
+
+#### hourly pay quartile metrics ----
+
+paygap %>% 
+  select(contains('quartile')) %>%
+  summary()
+
+## it appears that 392 observations have missing data relating to hourly pay
+## quartile data although there is no missing data in the diff hourly percent
+## variables.
+
+# are all missing values in same observations
+paygap %>% 
+  select(contains('quartile')) %>%
+  # plot missingness by variable and observation
+  missing_plot()
+
+## it appears that data is missing across all quartiles for 392 observations
+## ie. there is either data for all quartiles or for none
+
+#### employer size ----
+
+# explore whether missing data in other variables related to categories of 
+# employer size (including where employer size is NA)
+
+paygap %>% 
+  gg_miss_var(show_pct = TRUE, facet = employer_size)
+
+## it appears that as employer size increases the percent of missing data for
+## all variables appears to decrease
+
+## conversely the percentage of missing data for all variables appears to be 
+## highest where employer size is unknown
+
+### implicit missing data ----
+
+## ie. are there years missing that don't show up with any values?
+
+complete_paygap <-
+  paygap %>%
+  complete(employer_id, year_due)
+
+summary(complete_paygap)
+
+# there are many companies with data missing for years 
+# explore if there are any patterns in this data
+
+complete_paygap %>% 
+  select(employer_id, year_due, current_name) %>% 
+  group_by(year_due) %>% 
+  summarise(missing_data = sum(is.na(current_name))) %>% 
+  ggplot() +
+  geom_col(aes(year_due, missing_data))
+
+# i can understand why data incomplete for 2023 but unsure why other years
+# especially spike in missing data for 2020
+
+# what data is there for 2023 considering that this is next year?
+paygap %>% 
+  filter(year_due == 2023) %>% 
+  nrow()
+
+# 125 companies have submitted data for next year already
 ```

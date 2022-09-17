@@ -26,7 +26,7 @@ write_csv(paygap_raw, "gender_paygap/data/raw/paygap_raw.csv")
 paygap <-
     paygap_raw %>%
     # create consistent clean variable names
-    janitor::clean_names() %>%  
+    janitor::clean_names() %>%
     mutate(
         # ensure dates in correct format
         across(c(due_date, date_submitted), as_datetime),
@@ -44,17 +44,16 @@ paygap <-
                     "500 to 999",
                     "1000 to 4999",
                     "5000 to 19,999",
-                    "20,000 or more"
-                )
+                    "20,000 or more")
             ),
-        # year that data relates to ('snapshot' date)
+        # date that data relates to ('snapshot' date) and year
         snapshot_date = due_date - years(1),
-        year = as.integer(snapshot_date),
+        year = as.integer(year(snapshot_date)),
         # calculate if submission late
         delay = date_submitted - due_date,
         delay = as.numeric(as.duration(delay), 'days'),
         late_submission = delay > 0
-    ) %>% 
+    ) %>%
     # remove duplicates where data resubmitted for same year
     group_by(employer_id, year) %>%
     arrange(desc(date_submitted)) %>%
