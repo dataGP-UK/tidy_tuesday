@@ -229,19 +229,9 @@ paygap_long %>%
   geom_histogram(aes(value), binwidth = 5) +
   facet_wrap(~ sex, ncol = 1)
 
-## boxplots
-paygap_long %>% 
-  drop_na(value) %>% 
-  filter(
-    sex %in% c('male', 'female') &
-      metric == 'bonus_percent') %>% 
-  ggplot() +
-  geom_boxplot(aes(value)) +
-  facet_wrap(~ sex, ncol = 1)
-
 ```
 
-# Bivariate analysis
+# Multivariate analysis
 
 ## Categorical vs Discrete numeric
 
@@ -276,7 +266,7 @@ year_size <-
 year_size %>%
   ggplot() +
   geom_col(aes(
-    x = year_due,
+    x = year,
     y = n,
     fill = fct_rev(employer_size)), 
     position = 'fill')+
@@ -291,28 +281,149 @@ year_size %>%
 
 ```
 
+## Categorical vs continuous
+
+Categorical = employer size
+
+Continuous = difference hourly percent, difference bonus percent, % receiving bonus, % per quartile
+
 ```{r}
-## ended up with bivariate analysis
+# employer size vs. diff hourly percent
+
+paygap %>% 
+    group_by(employer_size) %>% 
+    summarise(median = median(diff_mean_hourly_percent) %>% round (2)) %>%
+    ggplot() +
+    geom_col(aes(x = employer_size, y = median, fill = employer_size)) +
+    scale_fill_hue()
+
+paygap %>% 
+    group_by(employer_size) %>% 
+    summarise(median = median(diff_median_hourly_percent) %>% round (2)) %>%
+    ggplot() +
+    geom_col(aes(x = employer_size, y = median, fill = employer_size)) +
+    scale_fill_hue()
+
+# median hourly pay difference appears to decrease as number of employees increases
+```
+
+```{r}
+# employer size vs. diff bonus percent
+
+paygap %>% 
+    drop_na() %>% 
+    group_by(employer_size) %>% 
+    summarise(median = median(diff_mean_bonus_percent) %>% round (2)) %>%
+    ggplot() +
+    geom_col(aes(x = employer_size, y = median, fill = employer_size)) +
+    scale_fill_hue()
+
+paygap %>% 
+    drop_na() %>% 
+    group_by(employer_size) %>% 
+    summarise(median = median(diff_median_bonus_percent) %>% round (2)) %>%
+    ggplot() +
+    geom_col(aes(x = employer_size, y = median, fill = employer_size)) +
+    scale_fill_hue()
+
+# whilst median bonus pay percent difference appears to increase with increasing size
+```
+
+Hypothesis: is the gap in hourly pay less in large employers but the gap in bonus pay high?
+
+```{r}
+# bonus percent vs employer_size (overall - males and females)
+paygap_long %>% 
+    group_by(employer_size) %>% 
+    filter(metric == "bonus_percent") %>%
+    summarise(mean_bonus_percent = mean(value)) %>% 
+    ggplot() +
+    geom_col(aes(employer_size, mean_bonus_percent, fill = employer_size)) +
+    scale_fill_discrete()
+
+## a higher percentage of employees of the largest companies (20,000+ employees) appear to receive a bonus compared to smaller companies
+```
+
+```{r}
+paygap_long %>%
+    drop_na() %>%
+    filter(sex == 'male' & metric != 'bonus_percent') %>%
+    group_by(metric) %>%
+    summarise(median = median(value)) %>%
+    mutate(quartile = factor(
+        metric,
+        ordered = TRUE,
+        levels = c(
+            'lower_quartile',
+            'lower_middle_quartile',
+            'upper_middle_quartile',
+            'top_quartile'
+        ),
+        labels = c('lower', 'lower_mid', 'upper_mid', 'top')
+    )) %>%
+    ggplot() +
+    geom_col(aes(x = quartile, y = median, fill = metric)) +
+    theme(legend.position = 'none')
+```
+
+```{r}
 
 paygap_long %>%
-  drop_na(value) %>%
-  filter(sex %in% c('male', 'female') &
-           metric != 'bonus_percent') %>%
-  group_by(metric, sex) %>%
-  summarise(median = median(value)) %>%
-  mutate(quartile = factor(
-    metric,
-    ordered = TRUE,
-    levels = c(
-      'lower_quartile',
-      'lower_middle_quartile',
-      'upper_middle_quartile',
-      'top_quartile'
-    ),
-    labels = c('lower', 'lower_mid', 'upper_mid', 'top')
-  )) %>% 
-  ggplot() +
-  geom_col(aes(x = quartile, y = median, fill = sex), position = 'stack')
+    drop_na(value) %>%
+    filter(sex %in% c('male', 'female') &
+               metric != 'bonus_percent') %>%
+    group_by(metric, sex) %>%
+    summarise(median = median(value)) %>%
+    mutate(quartile = factor(
+        metric,
+        ordered = TRUE,
+        levels = c(
+            'lower_quartile',
+            'lower_middle_quartile',
+            'upper_middle_quartile',
+            'top_quartile'
+        ),
+        labels = c('lower', 'lower_mid', 'upper_mid', 'top')
+    )) %>%
+    ggplot() +
+    geom_col(aes(x = quartile, y = median, fill = fct_rev(sex)), position = 'stack')
+
+```
+
+Females make up the largest proportion of people in the lowest 2 hourly pay quartiles. Men make the greatest proportion of people in the upper 2 hourly pay quartiles. It appears that more men are paid well than females that are paid well.
+
+Delays in reporting and late submission
+
+```{r}
+
+# by employer size
+paygap %>% 
+    group_by(employer_size) %>% 
+    summarise(mean_delay = mean(delay)) %>% 
+    ggplot() +
+    geom_col(aes(employer_size, mean_delay))
+
+paygap %>% 
+    xtabs(formula = ~ employer_size + late_submission, data = .) %>% 
+    prop.table(margin = 1) %>% round(2) * 100
+
+# by year
+paygap %>% 
+    filter(year != 2022) %>% 
+    group_by(year) %>% 
+    summarise(mean_delay = mean(delay)) %>% 
+    ggplot() +
+    geom_col(aes(year, mean_delay))
+
+paygap %>% 
+    xtabs(formula = ~ year + late_submission, data = .) %>% 
+    prop.table(margin = 1) %>% round(2) * 100
+
+
+# on average companies submit GPG information prior to the deadline. It appears that the larger companies report earlier than smaller ones.
+
+# In 2019 delays and late submissions increased which I suspect was related to the effects of the pandemic. Reporting deadline for 2020 were relaxed and the mean delay was negative and late submissions have returned to around 11%
+
 
 
 ```
