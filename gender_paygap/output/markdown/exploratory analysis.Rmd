@@ -3,23 +3,29 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-```{r}
+```{r setup}
 library(tidyverse)
 library(here)
 ```
 
-```{r}
-paygap_long <- readRDS(file = "gender_paygap/data/processed/paygap_tidy.rda")
-paygap <- readRDS(file = "gender_paygap/data/processed/paygap_clean.rda")
+```{r load data}
+paygap_long <- readRDS(here("gender_paygap/data/processed/paygap_tidy.rda"))
+paygap <- readRDS(here("gender_paygap/data/processed/paygap_clean.rda"))
 ```
 
-Univariate
+Describe data here + produce codebooks
+
+```{r}
+paygap %>% 
+    map_df(class)
+```
+
+# Univariate analysis
+
+## Categorical variables
 
 ```{r}
 
-## categorical ----
-
-##  employer size and year due
 paygap %>% 
   count(employer_size)
 
@@ -27,29 +33,30 @@ paygap %>%
   count(employer_size) %>% 
   ggplot() +
   geom_col(aes(x = employer_size, y = n))
+```
 
-### most frequent employer size is 250-499. Increasing employer size assoc with
-### decreasing frequency
+Most frequent employer size is 250-499. Increasing employer size appears to be associated with decreasing frequency.
+
+## Discrete numeric
+
+```{r}
+paygap %>% 
+  count(year)
 
 paygap %>% 
-  count(year_due)
-
-paygap %>% 
-  count(year_due) %>% 
+  count(year) %>% 
   ggplot() +
-  geom_col(aes(x = year_due, y = n)) 
-
-### similar number of records for each year at around 10230-10533 
-### there is a dip in 2020 - could this be pandemic related?
-### there are 125 entries for 2023 which may not be valid
+  geom_col(aes(x = year, y = n)) 
 
 ```
 
+There are similar number of observations for each year at around 10200-10500. However there is a dip in 2019, matching findings regarding implicit missing values, which is likely to be related to the pandemic.
+
+## Continuous numeric
+
+### Percent difference in hourly pay 
+
 ```{r}
-## continuous ----
-
-### diff_hourly_percent ----
-
 paygap_long %>% 
   filter(
     sex == 'difference' &
@@ -82,6 +89,11 @@ paygap_long %>%
 
 ## in view of extreme outliers then median may be most appropriate method to 
 ## measure the location of centre REVIEW this
+```
+
+```{r}
+
+
 
 ### diff bonus percent ----
 
