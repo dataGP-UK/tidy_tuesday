@@ -7,6 +7,7 @@ output: html_notebook
 library(tidyverse)
 library(here)
 library(naniar)
+library(finalfit)
 
 # import clean data
 paygap <- read_rds(here('gender_paygap/data/processed/paygap_clean.rda'))
@@ -181,9 +182,12 @@ All hourly pay quartile data appears to be valid
 
 ```{r}
 paygap_selected <-  paygap %>%
-    select(-c(company_link_to_gpg_info,
-           company_number,
-           responsible_person))
+    select(-c(
+        company_link_to_gpg_info,
+        company_number,
+        responsible_person,
+        address
+    ))
 
 paygap_selected %>% 
     pct_complete_case()
@@ -201,19 +205,14 @@ paygap_selected %>%
 
 When unimportant variables removed from data 73% of rows are complete leaving 27% having some missing data. 2.0% of all data is missing. The most frequent missing data is for difference in bonus percent followed by sic codes, employer size and then hourly pay quartiles.
 
+### Difference in bonus percent
+
 ```{r diff_bonus_percent_NA}
 
-
-# largest amount of missing data is for % differences in bonuses 
-# between males and females
-
-## there are 8932 observations with missing date for diff bonus percent
-## but no missing values for percent employees receiving bonus
-
-## if either no males or no females paid a bonus then it will not be possible
-## calculate a difference in bonus paid - therefore mean/median will = NA
-
-## if both sexes paid a bonus then data is missing for some reason
+sum(is.na(paygap$diff_median_bonus_percent))
+sum(is.na(paygap$diff_mean_bonus_percent))
+sum(is.na(paygap$male_bonus_percent))
+sum(is.na(paygap$female_bonus_percent))
 
 ## employers who don't pay a bonus to one or both sexes
 paygap %>% 
@@ -221,90 +220,72 @@ paygap %>%
   summarise(missing_mean = sum(is.na(diff_mean_bonus_percent)),
             missing_median = sum(is.na(diff_median_bonus_percent)))
 
-# it appears that most of missing values relate employers where bonuses 
-# are not paid to either (or both) males or females
-
 # missing values where bonuses are paid to both sexes
-
 paygap %>%
-  # select observations where bonuses are paid to male and female but there
-  # is still missing data for values of mean or median difference in bonus %
+  # select observations where bonuses are paid to males and females but there
+  # is still missing data for difference in bonus percent
   filter((female_bonus_percent != 0 & male_bonus_percent != 0) &
            (is.na(diff_median_bonus_percent) | is.na(diff_mean_bonus_percent)
             )
          )%>%
   nrow() 
-
-## there are 14 observations where data where males and females receive a bonus 
-## and no value for mean and/or median difference available
-
-## TO DO: decide how to handle missing data in these 14 observations
-
-
 ```
 
+The largest amount of missing data was for percent difference in bonus pay between males and females. There were 8981 observations with missing values. There were no missing values for percentage of male or female employees receiving bonus.
+
+It appears that most of missing values (8971) relate to employers where bonuses were not paid to either (or both) males or females and therefore difference cant be calculated. There were 14 observations where bonuses were paid to males and females but the value for percent difference in bonus pay was missing.
+
+### Hourly pay quartiles
+
 ```{r}
-
-#### hourly pay quartile metrics ----
-
 paygap %>% 
   select(contains('quartile')) %>%
   summary()
 
-## it appears that 392 observations have missing data relating to hourly pay
-## quartile data although there is no missing data in the diff hourly percent
-## variables.
-
-# are all missing values in same observations
 paygap %>% 
   select(contains('quartile')) %>%
   # plot missingness by variable and observation
   missing_plot()
-
-## it appears that data is missing across all quartiles for 392 observations
-## ie. there is either data for all quartiles or for none
-
-#### employer size ----
-
-# explore whether missing data in other variables related to categories of 
-# employer size (including where employer size is NA)
-
-paygap %>% 
-  gg_miss_var(show_pct = TRUE, facet = employer_size)
-
-## it appears that as employer size increases the percent of missing data for
-## all variables appears to decrease
-
-## conversely the percentage of missing data for all variables appears to be 
-## highest where employer size is unknown
-
-### implicit missing data ----
-
-## ie. are there years missing that don't show up with any values?
-
-complete_paygap <-
-  paygap %>%
-  complete(employer_id, year_due)
-
-summary(complete_paygap)
-
-# there are many companies with data missing for years 
-# explore if there are any patterns in this data
-
-complete_paygap %>% 
-  select(employer_id, year_due, current_name) %>% 
-  group_by(year_due) %>% 
-  summarise(missing_data = sum(is.na(current_name))) %>% 
-  ggplot() +
-  geom_col(aes(year_due, missing_data))
-
-# i can understand why data incomplete for 2023 but unsure why other years
-# especially spike in missing data for 2020
-
-# what data is there for 2023 considering that this is next year?
-paygap %>% 
-  filter(year_due == 2023) %>% 
-  nrow()
-
-# 125 companies have submitted data for next year already
 ```
+
+392 observations have missing data relating to hourly pay quartile data. Missing values across multiple quartiles are in same observations. ie. there is either data for all quartiles or for none
+
+### Employer size
+
+```{r}
+paygap_selected %>% 
+    select(where(any_na)) %>% 
+    gg_miss_var(show_pct = TRUE, facet = employer_size)
+```
+
+It appears that as employer size increases the percent of missing data for all variables appears to decrease. The percentage of missing data for all variables appears to be highest where employer size is unknown. This suggests that some employers have not provided complete information. Is there a pattern to this - ie. what type of missing data is this?
+
+This is an area to revisit prior to any modelling that requires management of missing data.
+
+## Implicit missing data
+
+This is missing data where there is no row in the dataset for a particular employer:year pairing.
+
+Companies with size 250-499 may fall out of reporting requirements due to changes in workforce size or may go out of business.
+
+Missing data submission most likely to be an issue where there are gaps between years of submission esp if a large company that is unlikely to have reduced its workforce to below 250 employees.
+
+```{r}
+paygap %>% 
+    select(employer_id, snapshot_date, due_date, year, employer_size) %>% 
+    group_by(employer_id) %>% 
+    mutate(gap = year - lag(year)) %>% 
+    filter(gap > 1) %>% 
+    ungroup() %>% 
+    count(snapshot_date, year)
+
+paygap %>% 
+    select(employer_id, current_name, snapshot_date, due_date, year, employer_size) %>% 
+    group_by(employer_id) %>% 
+    mutate(gap = year - lag(year)) %>% 
+    filter(gap > 1 & employer_size != '250 to 499') %>% 
+    ungroup() %>% 
+    arrange(desc(employer_size))
+```
+
+Some work to do on interpretation of this data
