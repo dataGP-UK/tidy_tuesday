@@ -50,13 +50,14 @@ paygap %>%
 
 ```
 
-There are similar number of observations for each year at around 10200-10500. However there is a dip in 2019, matching findings regarding implicit missing values, which is likely to be related to the pandemic.
+There are similar number of observations for each year at around 10200-10500. However there is a dip in 2019 to around 6200, matching findings regarding implicit missing values, likely to be pandemic related.
 
 ## Continuous numeric
 
-### Percent difference in hourly pay 
+### Percent difference in hourly pay
 
 ```{r}
+# summary statistics
 paygap_long %>% 
   filter(
     sex == 'difference' &
@@ -70,6 +71,9 @@ paygap_long %>%
     max = max(value),
     sd = sd(value))
 
+# visualise distribution
+
+## histogram
 paygap_long %>% 
   filter(
     sex == 'difference' &
@@ -79,24 +83,23 @@ paygap_long %>%
   geom_histogram(aes(value), binwidth = 5) +
   facet_wrap(~ metric, ncol = 1)
 
+## boxplot
 paygap_long %>%
   filter(
     sex == 'difference' &
       metric %in% c('median_hourly_percent', 'mean_hourly_percent')
   ) %>% 
   ggplot() +
-  geom_boxplot(aes(x = metric, y = value))
+  geom_boxplot(aes(x = metric, y = value), alpha = 0.2)
 
 ## in view of extreme outliers then median may be most appropriate method to 
 ## measure the location of centre REVIEW this
 ```
 
+### Percent difference in bonus pay
+
 ```{r}
-
-
-
-### diff bonus percent ----
-
+# summary statistics
 paygap_long %>% 
   drop_na(value) %>%  
   filter(
@@ -111,6 +114,9 @@ paygap_long %>%
     max = max(value),
     sd = sd(value))
 
+# graphically
+
+## histograms
 paygap_long %>% 
   drop_na(value) %>%  
   filter(
@@ -121,6 +127,7 @@ paygap_long %>%
   geom_histogram(aes(value), binwidth = 1000) +
   facet_wrap(~ metric, ncol = 1)
 
+## boxplot
 paygap_long %>% 
   drop_na(value) %>%  
   filter(
@@ -129,10 +136,11 @@ paygap_long %>%
   ) %>%
   ggplot() +
   geom_boxplot(aes(x = metric, y = value))
+```
 
-## difficult to visualise distribution due to extreme values
+### Quartiles for hourly pay
 
-### quartile for hourly pay ----
+```{r}
 
 # numerically
 paygap_long %>% 
@@ -150,8 +158,7 @@ paygap_long %>%
 
 # graphically
 
-# produced 8 histograms from 1 block of code to explore distribution of % in 
-# each quartile of men and women
+## histograms
 paygap_long %>%
   drop_na(value) %>%
   filter(sex %in% c('male', 'female') &
@@ -171,8 +178,32 @@ ggplot() +
   geom_histogram(aes(value, y = ..density..), binwidth = 10) +
   facet_grid(rows = vars(sex), cols = vars(metric))
 
-### bonus percent ----
+## boxplots
+paygap_long %>%
+  drop_na(value) %>%
+  filter(sex %in% c('male', 'female') &
+           metric != 'bonus_percent') %>%
+  mutate(metric = factor(
+    metric,
+    ordered = TRUE,
+    levels = c(
+      'lower_quartile',
+      'lower_middle_quartile',
+      'upper_middle_quartile',
+      'top_quartile'
+    ),
+    labels = c('lower', 'lower_mid', 'upper_mid', 'top')
+  )) %>% 
+ggplot() +
+  geom_boxplot(aes(y = value)) +
+  facet_grid(cols = vars(sex), rows = vars(fct_rev(metric)))
+```
 
+### Males/Females paid bonus
+
+```{r}
+
+# numeric
 paygap_long %>% 
   drop_na(value) %>% 
   filter(
@@ -186,6 +217,9 @@ paygap_long %>%
     max = max(value),
     sd = sd(value))
 
+# graphically
+
+## histograms
 paygap_long %>% 
   drop_na(value) %>% 
   filter(
@@ -195,26 +229,32 @@ paygap_long %>%
   geom_histogram(aes(value), binwidth = 5) +
   facet_wrap(~ sex, ncol = 1)
 
+## boxplots
+paygap_long %>% 
+  drop_na(value) %>% 
+  filter(
+    sex %in% c('male', 'female') &
+      metric == 'bonus_percent') %>% 
+  ggplot() +
+  geom_boxplot(aes(value)) +
+  facet_wrap(~ sex, ncol = 1)
 
 ```
 
+# Bivariate analysis
+
+## Categorical vs Discrete numeric
+
+### employer size vs year
+
 ```{r}
-## bivariate analyses ----
-
-### categorical vs categorical
-
-## employer size vs year_due
-
-### cross tabulation
+# cross tabulation
 paygap %>% 
-  xtabs(~ employer_size + year_due, data = .)
-
-### not particularly helpful as total number of observations varies by year
-### will need prop table
+  xtabs(~ employer_size + year, data = .)
 
 year_size <- 
   paygap %>% 
-  xtabs(~ employer_size + year_due, data = .) %>% 
+  xtabs(~ employer_size + year, data = .) %>% 
   prop.table(margin = 2) %>% 
   round(2) %>% 
   as_tibble() %>%
@@ -230,7 +270,7 @@ year_size <-
                "20,000 or more"
              )
            ),
-         year_due = as.integer(year_due))
+         year = as.integer(year))
   
 
 year_size %>%
@@ -243,12 +283,15 @@ year_size %>%
   scale_fill_discrete()
 
 year_size %>% 
-  ggplot(aes(x = year_due, y = n, color = employer_size)) +
+  ggplot(aes(x = year, y = n, color = employer_size)) +
   geom_point() +
   geom_line() +
   scale_color_discrete()
   
 
+```
+
+```{r}
 ## ended up with bivariate analysis
 
 paygap_long %>%
@@ -270,7 +313,6 @@ paygap_long %>%
   )) %>% 
   ggplot() +
   geom_col(aes(x = quartile, y = median, fill = sex), position = 'stack')
-
 
 
 ```
