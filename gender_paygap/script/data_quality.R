@@ -99,30 +99,6 @@ paygap_long <-
     metric = factor(metric)
     ) 
 
-# quality assessment ----
-
-
-
-## accuracy ----
-
-### submitted_after_the_deadline ----
-
-# assess accuracy by comparing with late_submit which has been calculated from
-# the dates provided
-
-paygap %>% 
-  xtabs(~ submitted_after_the_deadline + late_submit, data = .)
-
-## accuracy = total correct / total observations
-## ~ 92% accurate - I am unsure why these don't match 100%
-## it could be a data collection issue
-## plan: replace submitted_after_the_deadline with values from late_submiy
-
-paygap <- 
-  paygap %>% 
-  mutate(
-    submitted_after_the_deadline = late_submit
-  )
 
 ## consistency ----
 
